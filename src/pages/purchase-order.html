@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Purchase Order</title>
+    <link rel="stylesheet" href="../css/main.css">
+</head>
+
+<body class="bg-gray-50 h-dvh flex flex-col overflow-hidden">
+
+    <!-- Header App -->
+    <header class="bg-linear-315 from-[#1e40af] to-[#2563eb] px-3 pt-3 shrink-0 z-30">
+        <!-- Baris atas: logo + user -->
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+                <div id="connection-check-box"
+                    class="aspect-square w-5 h-auto bg-red-600 border-2 border-white rounded-sm"></div>
+                <div class="font-semibold text-white text-md">Purchase App</div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="header-username" class="text-sm text-blue-200"></span>
+                <button id="btn-logout" title="Keluar"
+                    class="flex items-center justify-center text-white/80 hover:text-white transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Top Nav — tab halaman, menempel di bawah header -->
+        <nav class="flex">
+            <a href="purchase-order.html" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold
+                       text-white border-b-2 border-white">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586
+                           a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z" />
+                </svg>
+                Purchase Order
+            </a>
+            <a href="retur.html" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium
+                       text-white/60 hover:text-white/90 border-b-2 border-transparent transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+                Retur
+            </a>
+        </nav>
+    </header>
+
+    <!-- Tab switcher Request / PO -->
+    <div class="px-2 pt-2 shrink-0">
+        <div class="flex border-2 border-gray-200 rounded-xl px-4">
+            <button id="tab-request" data-tab="request" class="tab-btn py-2.5 w-full text-sm font-medium border-b-2 border-transparent
+                       text-gray-400 -mb-px hover:text-gray-600 transition-colors">
+                Request PO
+            </button>
+            <button id="tab-po" data-tab="po" class="tab-btn py-2.5 px-3 w-full text-sm font-medium border-b-2 border-blue-500
+                       text-blue-600 -mb-px transition-colors">
+                Purchase Order
+            </button>
+        </div>
+    </div>
+
+    <!-- Konten utama -->
+    <div class="flex-1 overflow-hidden p-2">
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden h-full flex flex-col">
+
+            <!-- Toolbar -->
+            <div
+                class="flex items-center justify-between px-4 py-3 border-b bg-linear-to-b from-gray-100 to-gray-300 border-gray-100 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="font-medium text-gray-800 text-lg">Data</span>
+                    <span class="font-medium text-gray-400 text-lg">|</span>
+                    <span id="badge-count" class="text-lg text-gray-800 font-medium">0</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="btn-refresh" title="Refresh" class="w-8 h-8 flex items-center justify-center rounded-lg border bg-white border-gray-800
+                               text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                    <button id="btn-history-po" title="Riwayat PO" class="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-blue-200
+                               bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </button>
+                    <button id="btn-add-po" class="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-green-200
+                               bg-green-50 text-green-700 text-sm font-medium hover:bg-green-100 transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search bar -->
+            <div class="p-2 border-b border-gray-100 shrink-0">
+                <div class="relative">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" stroke-width="2" />
+                        <path d="M21 21l-4.35-4.35" stroke-linecap="round" stroke-width="2" />
+                    </svg>
+                    <input id="input-search" type="search" class="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg
+                               focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                        placeholder="Cari nomor PO / supplier...">
+                </div>
+            </div>
+
+            <!-- Tabel -->
+            <div class="flex-1 overflow-auto">
+                <table class="w-full text-sm" style="table-layout: fixed">
+                    <colgroup>
+                        <col style="width: 40px">
+                        <col style="width: 140px">
+                        <col style="width: 200px">
+                        <col style="width: 110px">
+                        <col style="width: 130px">
+                        <col style="width: 90px">
+                        <col style="width: 100px">
+                    </colgroup>
+                    <thead class="bg-gray-100 text-xs text-gray-500 font-medium sticky top-0 z-10">
+                        <tr>
+                            <th class="px-3 py-2.5 text-center">No</th>
+                            <th class="px-3 py-2.5 text-left">ID Purchase Order</th>
+                            <th class="px-3 py-2.5 text-left">Supplier</th>
+                            <th class="px-3 py-2.5 text-left">Tanggal</th>
+                            <th class="px-3 py-2.5 text-right">Total</th>
+                            <th class="px-3 py-2.5 text-center">Status</th>
+                            <th class="px-3 py-2.5 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Empty state -->
+            <div id="empty-state" class="hidden py-16 flex flex-col items-center text-gray-400">
+                <p class="text-sm">Tidak ada data Purchase Order</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Tab switcher logic -->
+    <script>
+        document.querySelectorAll('.tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.tab-btn').forEach(function (t) {
+                    t.classList.remove('border-blue-500', 'text-blue-600')
+                    t.classList.add('border-transparent', 'text-gray-400')
+                })
+                this.classList.add('border-blue-500', 'text-blue-600')
+                this.classList.remove('border-transparent', 'text-gray-400')
+
+                const isRequest = this.dataset.tab === 'request'
+                document.getElementById('btn-history-po').style.display = isRequest ? 'none' : ''
+
+                document.dispatchEvent(new CustomEvent('tab:change', {
+                    detail: { tab: this.dataset.tab }
+                }))
+            })
+        })
+    </script>
+
+    <script type="module" src="../js/global.js"></script>
+    <script type="module" src="../js/purchase-order.js"></script>
+</body>
+
+</html>
