@@ -12,15 +12,20 @@
 
     <!-- Header App -->
     <header class="bg-linear-315 from-[#1e40af] to-[#2563eb] px-3 pt-3 shrink-0 z-30">
-        <!-- Baris atas: logo + user -->
+        <!-- Baris atas: status koneksi + username | jam + logout -->
         <div class="flex items-center justify-between mb-2">
+            <!-- Kiri: indikator koneksi + nama user -->
             <div class="flex items-center gap-2">
                 <div id="connection-check-box"
-                    class="aspect-square w-5 h-auto bg-red-600 border-2 border-white rounded-sm"></div>
-                <div class="font-semibold text-white text-md">Purchase App</div>
+                    class="aspect-square w-6 h-auto bg-red-600 border-2 border-white rounded-sm shrink-0"></div>
+                <span id="header-username" class="font-semibold text-white text-sm leading-none"></span>
             </div>
+            <!-- Kanan: jam & tanggal + tombol logout -->
             <div class="flex items-center gap-3">
-                <span id="header-username" class="text-sm text-blue-200"></span>
+                <div class="text-right leading-none">
+                    <div id="clock-time" class="text-sm font-semibold text-white tabular-nums"></div>
+                    <div id="clock-date" class="text-xs text-blue-200 mt-0.5"></div>
+                </div>
                 <button id="btn-logout" title="Keluar"
                     class="flex items-center justify-center text-white/80 hover:text-white transition">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

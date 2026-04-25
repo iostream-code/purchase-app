@@ -1,9 +1,11 @@
 import $ from 'jquery'
 import { requireAuth, getAuthUser, logout } from './auth.js'
-import { Http, Format, Toast, Loading, Modal, injectSharedUI } from './global.js'
+import { Http, Format, Toast, Loading, Modal, injectSharedUI, startClock, startConnectionCheck } from './global.js'
 
 requireAuth()
 injectSharedUI()
+startClock()
+startConnectionCheck()
 
 const user = getAuthUser()
 $('#header-username').text(user?.name ?? '')

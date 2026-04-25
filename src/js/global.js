@@ -196,6 +196,52 @@ export const Format = {
     },
 }
 
+// ─── Clock ───────────────────────────────────────────────────
+export function startClock() {
+    function tick() {
+        const now = new Date()
+
+        // Jam H:i:s
+        const time = now.toLocaleTimeString('id-ID', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+        })
+
+        // Tanggal DD-MMM-YYYY (contoh: 12-Apr-2026)
+        const day = String(now.getDate()).padStart(2, '0')
+        const month = now.toLocaleString('en-GB', { month: 'short' })
+        const year = now.getFullYear()
+        const date = `${day}-${month}-${year}`
+
+        $('#clock-time').text(time)
+        $('#clock-date').text(date)
+    }
+    tick()
+    setInterval(tick, 1000)
+}
+
+// ─── Connection Check ─────────────────────────────────────────
+export function startConnectionCheck(intervalMs = 30000) {
+    async function check() {
+        try {
+            // Fetch dengan no-store agar tidak kena cache browser
+            await fetch(window.location.origin + '/', {
+                method: 'HEAD',
+                cache: 'no-store',
+                signal: AbortSignal.timeout(5000),
+            })
+            $('#connection-check-box')
+                .removeClass('bg-red-600')
+                .addClass('bg-green-500')
+        } catch {
+            $('#connection-check-box')
+                .removeClass('bg-green-500')
+                .addClass('bg-red-600')
+        }
+    }
+    check()
+    setInterval(check, intervalMs)
+}
+
 // ─── Shared HTML fragments ───────────────────────────────────
 // Dipakai semua halaman — inject loading overlay, toast, dan modal
 export function injectSharedUI() {
