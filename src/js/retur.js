@@ -1,14 +1,15 @@
 import $ from 'jquery'
 import { requireAuth, getAuthUser, logout } from './auth.js'
-import { Http, Format, Toast, Loading, Modal, injectSharedUI, startClock, startConnectionCheck } from './global.js'
+import { Http, Format, Toast, Loading, Modal, injectSharedUI, startClock, startConnectionCheck, injectHeader } from './global.js'
 
 requireAuth()
 injectSharedUI()
+injectHeader('retur')
 startClock()
 startConnectionCheck()
 
 const user = getAuthUser()
-$('#header-username').text(user?.name ?? '')
+$('#header-username').text(user?.name ?? 'Admin PO')
 $('#btn-logout').on('click', () => {
     Modal.confirm({
         title: 'Konfirmasi Keluar',
@@ -24,15 +25,22 @@ let _allRetur = []
 let _query = ''
 
 // ─── Badge status ─────────────────────────────────────────────
-const STATUS_CLASS = {
-    draft: 'bg-gray-100 text-gray-600',
-    approved: 'bg-green-100 text-green-700',
-    rejected: 'bg-red-100 text-red-600',
-    done: 'bg-blue-100 text-blue-700',
+const STATUS_BG_CLASS = {
+    draft: 'bg-gray-50',
+    approved: 'bg-green-50',
+    rejected: 'bg-red-50',
+    done: 'bg-blue-50',
+}
+
+const STATUS_TEXT_CLASS = {
+    draft: 'text-gray-600',
+    approved: 'text-green-700',
+    rejected: 'text-red-600',
+    done: 'text-blue-700',
 }
 
 function badge(status) {
-    const cls = STATUS_CLASS[status] ?? 'bg-gray-100 text-gray-600'
+    const cls = STATUS_TEXT_CLASS[status] ?? 'text-gray-600'
     const label = status.charAt(0).toUpperCase() + status.slice(1)
     return `<span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium ${cls}">${label}</span>`
 }
@@ -55,14 +63,14 @@ const ICON_EDIT = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" vi
 function actionButtons(id) {
     return `<div class="flex justify-center gap-1">
         <button data-action="view" data-id="${id}" title="Lihat detail"
-            class="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200
-                   text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
-            ${ICON_EYE}
+            class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
+                font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+            DETAIL
         </button>
         <button data-action="edit" data-id="${id}" title="Edit"
-            class="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200
-                   text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
-            ${ICON_EDIT}
+            class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
+                font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+            EDIT
         </button>
     </div>`
 }
@@ -77,14 +85,14 @@ function renderTable(data) {
     data.forEach((r, i) => {
         $tbody.append(`
             <tr class="border-t border-gray-100 hover:bg-gray-50 transition">
-                <td class="px-3 py-2.5 text-center text-gray-400 text-xs">${i + 1}</td>
-                <td class="px-3 py-2.5 font-medium text-gray-800 truncate">${r.no_retur}</td>
-                <td class="px-3 py-2.5 text-gray-600 truncate">${r.no_po_ref}</td>
-                <td class="px-3 py-2.5 text-gray-500 text-xs">${Format.date(r.tanggal)}</td>
-                <td class="px-3 py-2.5 text-right text-gray-800 tabular-nums">${Format.currency(r.total)}</td>
-                <td class="px-3 py-2.5 text-gray-500 text-xs truncate">${r.alasan}</td>
-                <td class="px-3 py-2.5 text-center">${badge(r.status)}</td>
-                <td class="px-3 py-2.5">${actionButtons(r.id)}</td>
+                <td class="px-3 py-2.5 text-center text-gray-400 text-xs border border-gray-200">${i + 1}</td>
+                <td class="px-3 py-2.5 font-medium text-gray-800 truncate border border-gray-200">${r.no_retur}</td>
+                <td class="px-3 py-2.5 text-gray-600 truncate border border-gray-200">${r.no_po_ref}</td>
+                <td class="px-3 py-2.5 text-center text-gray-500 text-xs border border-gray-200">${Format.date(r.tanggal)}</td>
+                <td class="px-3 py-2.5 text-right text-gray-800 tabular-nums border border-gray-200">${Format.currency(r.total)}</td>
+                <td class="px-3 py-2.5 text-gray-500 text-xs truncate border border-gray-200">${r.alasan}</td>
+                <td class="px-3 py-2.5 text-center border border-gray-200 ${STATUS_BG_CLASS[r.status] || ''}">${badge(r.status)}</td>
+                <td class="px-3 py-2.5 border border-gray-200">${actionButtons(r.id)}</td>
             </tr>`)
     })
 }

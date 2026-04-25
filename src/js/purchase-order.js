@@ -1,14 +1,15 @@
 import $ from 'jquery'
 import { requireAuth, getAuthUser, logout } from './auth.js'
-import { Http, Format, Toast, Loading, Modal, injectSharedUI, startClock, startConnectionCheck } from './global.js'
+import { Http, Format, Toast, Loading, Modal, injectSharedUI, startClock, startConnectionCheck, injectHeader } from './global.js'
 
 requireAuth()
 injectSharedUI()
+injectHeader('purchase-order')
 startClock()
 startConnectionCheck()
 
 const user = getAuthUser()
-$('#header-username').text(user?.name ?? '')
+$('#header-username').text(user?.name ?? 'Admin PO')
 $('#btn-logout').on('click', () => {
     Modal.confirm({
         title: 'Konfirmasi Keluar',
@@ -44,17 +45,26 @@ const DUMMY_REQUEST = [
 ]
 
 // ─── Badge status ─────────────────────────────────────────────
-const STATUS_CLASS = {
-    draft: 'bg-gray-100 text-gray-600',
-    approved: 'bg-green-100 text-green-700',
-    rejected: 'bg-red-100 text-red-600',
-    partial: 'bg-yellow-100 text-yellow-700',
-    done: 'bg-blue-100 text-blue-700',
-    pending: 'bg-orange-100 text-orange-700',
+const STATUS_BG_CLASS = {
+    draft: 'bg-gray-50',
+    approved: 'bg-green-50',
+    rejected: 'bg-red-50',
+    partial: 'bg-yellow-50',
+    done: 'bg-blue-50',
+    pending: 'bg-orange-50',
+}
+
+const STATUS_TEXT_CLASS = {
+    draft: 'text-gray-600',
+    approved: 'text-green-700',
+    rejected: 'text-red-600',
+    partial: 'text-yellow-700',
+    done: 'text-blue-700',
+    pending: 'text-orange-700',
 }
 
 function badge(status) {
-    const cls = STATUS_CLASS[status] ?? 'bg-gray-100 text-gray-600'
+    const cls = STATUS_TEXT_CLASS[status] ?? 'text-gray-600'
     const label = status.charAt(0).toUpperCase() + status.slice(1)
     return `<span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium ${cls}">${label}</span>`
 }
@@ -77,14 +87,14 @@ const ICON_EDIT = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" vi
 function actionButtons(id) {
     return `<div class="flex justify-center gap-1">
         <button data-action="view" data-id="${id}" title="Lihat detail"
-            class="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200
-                   text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
-            ${ICON_EYE}
+            class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
+                font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+                   DETAIL
         </button>
         <button data-action="edit" data-id="${id}" title="Edit"
-            class="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200
-                   text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
-            ${ICON_EDIT}
+            class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
+                font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+                   EDIT
         </button>
     </div>`
 }
@@ -95,16 +105,17 @@ function renderPO(data) {
     $('#badge-count').text(data.length)
     if (!data.length) { $('#empty-state').removeClass('hidden'); return }
     $('#empty-state').addClass('hidden')
+
     data.forEach((po, i) => {
         $tbody.append(`
             <tr class="border-t border-gray-100 hover:bg-gray-50 transition">
-                <td class="px-3 py-2.5 text-center text-gray-400 text-xs">${i + 1}</td>
-                <td class="px-3 py-2.5 font-medium text-gray-800 truncate">${po.no_po}</td>
-                <td class="px-3 py-2.5 text-gray-600 truncate">${po.supplier}</td>
-                <td class="px-3 py-2.5 text-gray-500 text-xs">${Format.date(po.tanggal)}</td>
-                <td class="px-3 py-2.5 text-right text-gray-800 tabular-nums">${Format.currency(po.total)}</td>
-                <td class="px-3 py-2.5 text-center">${badge(po.status)}</td>
-                <td class="px-3 py-2.5">${actionButtons(po.id)}</td>
+                <td class="px-3 py-1 text-center text-gray-400 text-xs border border-gray-200">${i + 1}</td>
+                <td class="px-3 py-1 font-medium text-gray-800 truncate border border-gray-200">${po.no_po}</td>
+                <td class="px-3 py-1 text-gray-600 truncate border border-gray-200">${po.supplier}</td>
+                <td class="px-3 py-1 text-center text-gray-500 text-xs border border-gray-200">${Format.date(po.tanggal)}</td>
+                <td class="px-3 py-1 text-right text-gray-800 tabular-nums border border-gray-200">${Format.currency(po.total)}</td>
+                <td class="px-3 py-1 text-center border border-gray-200 ${STATUS_BG_CLASS[po.status] || ''}">${badge(po.status)}</td>
+                <td class="px-3 py-1 border border-gray-200">${actionButtons(po.id)}</td>
             </tr>`)
     })
 }
@@ -118,13 +129,13 @@ function renderRequest(data) {
     data.forEach((req, i) => {
         $tbody.append(`
             <tr class="border-t border-gray-100 hover:bg-gray-50 transition">
-                <td class="px-3 py-2.5 text-center text-gray-400 text-xs">${i + 1}</td>
-                <td class="px-3 py-2.5 font-medium text-gray-800 truncate">${req.no_req}</td>
-                <td class="px-3 py-2.5 text-gray-600 truncate">${req.supplier}</td>
-                <td class="px-3 py-2.5 text-gray-500 text-xs">${Format.date(req.tanggal)}</td>
-                <td class="px-3 py-2.5 text-right text-gray-800 tabular-nums">${Format.currency(req.total)}</td>
-                <td class="px-3 py-2.5 text-center">${badge(req.status)}</td>
-                <td class="px-3 py-2.5">${actionButtons(req.id)}</td>
+                <td class="px-3 py-1 text-center text-gray-400 text-xs border border-gray-200">${i + 1}</td>
+                <td class="px-3 py-1 font-medium text-gray-800 truncate border border-gray-200">${req.no_req}</td>
+                <td class="px-3 py-1 text-gray-600 truncate border border-gray-200">${req.supplier}</td>
+                <td class="px-3 py-1 text-gray-500 text-xs border border-gray-200">${Format.date(req.tanggal)}</td>
+                <td class="px-3 py-1 text-right text-gray-800 tabular-nums border border-gray-200">${Format.currency(req.total)}</td>
+                <td class="px-3 py-1 text-center border border-gray-200 ${STATUS_BG_CLASS[req.status] || ''}">${badge(req.status)}</td>
+                <td class="px-3 py-1 border border-gray-200">${actionButtons(req.id)}</td>
             </tr>`)
     })
 }

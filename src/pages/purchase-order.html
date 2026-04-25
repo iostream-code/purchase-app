@@ -10,65 +10,20 @@
 
 <body class="bg-gray-50 h-dvh flex flex-col overflow-hidden">
 
-    <!-- Header App -->
-    <header class="bg-linear-315 from-[#1e40af] to-[#2563eb] px-3 pt-3 shrink-0 z-30">
-        <!-- Baris atas: status koneksi + username | jam + logout -->
-        <div class="flex items-center justify-between mb-2">
-            <!-- Kiri: indikator koneksi + nama user -->
-            <div class="flex items-center gap-2">
-                <div id="connection-check-box"
-                    class="aspect-square w-6 h-auto bg-red-600 border-2 border-white rounded-sm shrink-0"></div>
-                <span id="header-username" class="font-semibold text-white text-sm leading-none"></span>
-            </div>
-            <!-- Kanan: jam & tanggal + tombol logout -->
-            <div class="flex items-center gap-3">
-                <div class="text-right leading-none">
-                    <div id="clock-time" class="text-sm font-semibold text-white tabular-nums"></div>
-                    <div id="clock-date" class="text-xs text-blue-200 mt-0.5"></div>
-                </div>
-                <button id="btn-logout" title="Keluar"
-                    class="flex items-center justify-center text-white/80 hover:text-white transition">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Top Nav — tab halaman, menempel di bawah header -->
-        <nav class="flex">
-            <a href="purchase-order.html" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold
-                       text-white border-b-2 border-white">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586
-                           a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z" />
-                </svg>
-                Purchase Order
-            </a>
-            <a href="retur.html" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium
-                       text-white/60 hover:text-white/90 border-b-2 border-transparent transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                </svg>
-                Retur
-            </a>
-        </nav>
-    </header>
+    <!-- Header + Navbar diinjek oleh injectHeader('purchase-order') di purchase-order.js -->
 
     <!-- Tab switcher Request / PO -->
-    <div class="px-2 pt-2 shrink-0">
-        <div class="flex border-2 border-gray-200 rounded-xl px-4">
-            <button id="tab-request" data-tab="request" class="tab-btn py-2.5 w-full text-sm font-medium border-b-2 border-transparent
-                       text-gray-400 -mb-px hover:text-gray-600 transition-colors">
-                Request PO
-            </button>
-            <button id="tab-po" data-tab="po" class="tab-btn py-2.5 px-3 w-full text-sm font-medium border-b-2 border-blue-500
-                       text-blue-600 -mb-px transition-colors">
-                Purchase Order
-            </button>
-        </div>
+    <div class="flex shrink-0 px-2">
+        <button id="tab-request" data-tab="request" class="tab-btn flex-1 flex items-center justify-center py-2.5 text-sm
+                       font-semibold transition-colors
+                       text-gray-600 hover:bg-gray-100/60 border border-gray-300">
+            Request PO
+        </button>
+        <button id="tab-po" data-tab="po" class="tab-btn flex-1 flex items-center justify-center py-2.5 text-sm
+                       font-bold transition-colors
+                       bg-[#2563eb] text-white border border-blue-700">
+            Purchase Order
+        </button>
     </div>
 
     <!-- Konten utama -->
@@ -123,7 +78,7 @@
 
             <!-- Tabel -->
             <div class="flex-1 overflow-auto">
-                <table class="w-full text-sm" style="table-layout: fixed">
+                <table class="w-full text-sm border-collapse" style="table-layout: fixed">
                     <colgroup>
                         <col style="width: 40px">
                         <col style="width: 140px">
@@ -131,17 +86,17 @@
                         <col style="width: 110px">
                         <col style="width: 130px">
                         <col style="width: 90px">
-                        <col style="width: 100px">
+                        <col style="width: 200px">
                     </colgroup>
                     <thead class="bg-gray-100 text-xs text-gray-500 font-medium sticky top-0 z-10">
                         <tr>
-                            <th class="px-3 py-2.5 text-center">No</th>
-                            <th class="px-3 py-2.5 text-left">ID Purchase Order</th>
-                            <th class="px-3 py-2.5 text-left">Supplier</th>
-                            <th class="px-3 py-2.5 text-left">Tanggal</th>
-                            <th class="px-3 py-2.5 text-right">Total</th>
-                            <th class="px-3 py-2.5 text-center">Status</th>
-                            <th class="px-3 py-2.5 text-center">Aksi</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">No</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">ID Purchase Order</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Supplier</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Tanggal</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Total</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Status</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="tbl-body"></tbody>
@@ -160,12 +115,14 @@
     <script>
         document.querySelectorAll('.tab-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
+                // Reset semua tab ke style non-aktif
                 document.querySelectorAll('.tab-btn').forEach(function (t) {
-                    t.classList.remove('border-blue-500', 'text-blue-600')
-                    t.classList.add('border-transparent', 'text-gray-400')
+                    t.classList.remove('bg-[#2563eb]', 'text-white', 'font-bold', 'border-blue-700')
+                    t.classList.add('text-gray-600', 'font-semibold', 'border-gray-300')
                 })
-                this.classList.add('border-blue-500', 'text-blue-600')
-                this.classList.remove('border-transparent', 'text-gray-400')
+                // Aktifkan tab yang diklik
+                this.classList.add('bg-[#2563eb]', 'text-white', 'font-bold', 'border-blue-700')
+                this.classList.remove('text-gray-600', 'font-semibold', 'border-gray-300')
 
                 const isRequest = this.dataset.tab === 'request'
                 document.getElementById('btn-history-po').style.display = isRequest ? 'none' : ''

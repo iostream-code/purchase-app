@@ -186,13 +186,30 @@ export const Format = {
             day: 'numeric', month: 'long', year: 'numeric',
         })
     },
-    currency(n) {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
-        }).format(n)
-    },
+
+    /**
+     * Format angka menjadi string ribuan dengan delimiter titik (.)
+     * Contoh: 1500000 → "1.500.000"
+     */
     number(n) {
-        return new Intl.NumberFormat('id-ID').format(n)
+        return Number(n).toLocaleString('id-ID')
+    },
+
+    /**
+     * Format angka sebagai harga DENGAN prefix "Rp " dan delimiter titik.
+     * Contoh: 1500000 → "Rp 1.500.000"
+     */
+    currency(n) {
+        return 'Rp\u00a0' + Format.number(n)
+    },
+
+    /**
+     * Format angka sebagai harga TANPA prefix "Rp", delimiter titik.
+     * Contoh: 1500000 → "1.500.000"
+     * Berguna untuk input, kolom tabel sempit, atau kalkulasi tampilan.
+     */
+    amount(n) {
+        return Format.number(n)
     },
 }
 
@@ -203,8 +220,11 @@ export function startClock() {
 
         // Jam H:i:s
         const time = now.toLocaleTimeString('id-ID', {
-            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-        })
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        }).replace(/\./g, ':');
 
         // Tanggal DD-MMM-YYYY (contoh: 12-Apr-2026)
         const day = String(now.getDate()).padStart(2, '0')
@@ -301,3 +321,88 @@ export function injectSharedUI() {
         $('#modal-close').on('click', () => Modal.close())
     }
 }
+
+// ─── Header & Nav ────────────────────────────────────────────
+// Definisi tab — tambahkan entri baru di sini untuk halaman baru
+const NAV_TABS = [
+    {
+        id: 'purchase-order',
+        label: 'Purchase Order',
+        href: 'purchase-order.html',
+    },
+    {
+        id: 'retur',
+        label: 'Retur',
+        href: 'retur.html',
+    },
+]
+
+/**
+ * injectHeader(activeNavId)
+ * Menyuntikkan header biru + navbar halaman ke awal <body>.
+ * activeNavId — id tab nav aktif, misal 'purchase-order' atau 'retur'
+ *
+ * Elemen yang dihasilkan:
+ *   1. <header>  — background biru, berisi baris connection-box / username / clock / logout
+ *   2. gap px-3  — jarak antara header dan navbar
+ *   3. #app-nav  — bar tab halaman (abu gradient)
+ */
+export function injectHeader(activeNavId) {
+    // ── 1. Header biru ──────────────────────────────────────
+    const header = `
+        <header id="app-header"
+                class="bg-linear-315 from-[#1e40af] to-[#2563eb] px-3 py-3 shrink-0 z-30">
+            <div class="flex items-center justify-between">
+                <!-- Kiri: indikator koneksi + nama user -->
+                <div class="flex items-center gap-2">
+                    <div id="connection-check-box"
+                         class="w-6 h-6 bg-red-600 border-2 border-white rounded-xs shrink-0"></div>
+                    <span id="header-username"
+                          class="font-semibold text-white text-lg leading-none"></span>
+                </div>
+                <!-- Kanan: jam & tanggal + tombol logout -->
+                <div class="flex items-center gap-3">
+                    <div class="text-right leading-none">
+                        <div id="clock-time"
+                             class="text-sm font-semibold text-white tabular-nums"></div>
+                        <div id="clock-date"
+                             class="text-xs text-blue-200 mt-0.5"></div>
+                    </div>
+                    <button id="btn-logout" title="Keluar"
+                            class="flex items-center justify-center text-white/80 hover:text-white transition">
+                        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6
+                                   a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>`
+
+    // ── 2. Navbar tab halaman ────────────────────────────────
+    const tabs = NAV_TABS.map(tab => {
+        const isActive = tab.id === activeNavId
+        const cls = isActive
+            ? 'bg-[#2563eb] text-white font-bold border border-blue-700'
+            : 'text-gray-600 font-semibold hover:bg-gray-100/60 border border-gray-300'
+        return `
+            <a href="${tab.href}"
+               class="flex-1 flex items-center justify-center py-2.5 text-sm
+                      transition-colors ${cls}">
+                ${tab.label}
+            </a>`
+    }).join('')
+
+    const nav = `
+        <div id="app-nav"
+             class="flex shrink-0 mt-2 px-2">
+            ${tabs}
+        </div>`
+
+    // ── Inject ke awal <body> (sebelum konten halaman) ───────
+    $('body').prepend(nav).prepend(header)
+}
+
+/** @deprecated Gunakan injectHeader(). Alias untuk kompatibilitas mundur. */
+export function injectNav(activeId) { injectHeader(activeId) }
