@@ -26,75 +26,70 @@ let _allPO = []
 let _allRequest = []
 let _query = ''
 
-// ─── Data dummy ───────────────────────────────────────────────
-const DUMMY_PO = [
-    { id: 1, no_po: 'PO-2024-001', supplier: 'PT Sumber Makmur', tanggal: '2024-06-01', total: 12500000, status: 'approved' },
-    { id: 2, no_po: 'PO-2024-002', supplier: 'CV Jaya Abadi', tanggal: '2024-06-03', total: 8750000, status: 'draft' },
-    { id: 3, no_po: 'PO-2024-003', supplier: 'PT Maju Bersama', tanggal: '2024-06-05', total: 3200000, status: 'partial' },
-    { id: 4, no_po: 'PO-2024-004', supplier: 'UD Berkah Sejahtera', tanggal: '2024-06-07', total: 21000000, status: 'done' },
-    { id: 5, no_po: 'PO-2024-005', supplier: 'PT Andalan Teknik', tanggal: '2024-06-09', total: 6800000, status: 'approved' },
-    { id: 6, no_po: 'PO-2024-006', supplier: 'CV Mitra Sejati', tanggal: '2024-06-11', total: 4150000, status: 'rejected' },
-]
+// warehouse_id diambil dari auth user
+const _warehouseId = user?.warehouse_id ?? null
 
-const DUMMY_REQUEST = [
-    { id: 1, no_req: 'REQ-2024-001', supplier: 'PT Sumber Makmur', tanggal: '2024-05-28', total: 5000000, status: 'pending' },
-    { id: 2, no_req: 'REQ-2024-002', supplier: 'CV Jaya Abadi', tanggal: '2024-05-30', total: 2300000, status: 'approved' },
-    { id: 3, no_req: 'REQ-2024-003', supplier: 'PT Global Niaga', tanggal: '2024-06-02', total: 9750000, status: 'pending' },
-    { id: 4, no_req: 'REQ-2024-004', supplier: 'UD Karya Mandiri', tanggal: '2024-06-04', total: 1850000, status: 'rejected' },
-    { id: 5, no_req: 'REQ-2024-005', supplier: 'PT Andalan Teknik', tanggal: '2024-06-06', total: 14000000, status: 'approved' },
-]
+// ─── Mapping status API → label + warna ───────────────────────
+const STATUS_TEXT = {
+    DRAFT: 'Draft',
+    SUBMITTED: 'Submitted',
+    APPROVED: 'Approved',
+    SENT: 'Sent',
+    PARTIAL_RECEIVED: 'Partial',
+    PARTIAL_ORDERED: 'Partial',
+    RECEIVED: 'Received',
+    ORDERED: 'Ordered',
+    CLOSED: 'Closed',
+    REJECTED: 'Rejected',
+    CANCELLED: 'Cancelled',
+}
 
-// ─── Badge status ─────────────────────────────────────────────
 const STATUS_BG_CLASS = {
-    draft: 'bg-gray-50',
-    approved: 'bg-green-50',
-    rejected: 'bg-red-50',
-    partial: 'bg-yellow-50',
-    done: 'bg-blue-50',
-    pending: 'bg-orange-50',
+    DRAFT: 'bg-gray-50',
+    SUBMITTED: 'bg-orange-50',
+    APPROVED: 'bg-green-50',
+    SENT: 'bg-blue-50',
+    PARTIAL_RECEIVED: 'bg-yellow-50',
+    PARTIAL_ORDERED: 'bg-yellow-50',
+    RECEIVED: 'bg-blue-50',
+    ORDERED: 'bg-blue-50',
+    CLOSED: 'bg-gray-100',
+    REJECTED: 'bg-red-50',
+    CANCELLED: 'bg-red-50',
 }
 
 const STATUS_TEXT_CLASS = {
-    draft: 'text-gray-600',
-    approved: 'text-green-700',
-    rejected: 'text-red-600',
-    partial: 'text-yellow-700',
-    done: 'text-blue-700',
-    pending: 'text-orange-700',
+    DRAFT: 'text-gray-500',
+    SUBMITTED: 'text-orange-700',
+    APPROVED: 'text-green-700',
+    SENT: 'text-blue-700',
+    PARTIAL_RECEIVED: 'text-yellow-700',
+    PARTIAL_ORDERED: 'text-yellow-700',
+    RECEIVED: 'text-blue-700',
+    ORDERED: 'text-blue-700',
+    CLOSED: 'text-gray-600',
+    REJECTED: 'text-red-600',
+    CANCELLED: 'text-red-600',
 }
 
 function badge(status) {
-    const cls = STATUS_TEXT_CLASS[status] ?? 'text-gray-600'
-    const label = status.charAt(0).toUpperCase() + status.slice(1)
-    return `<span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium ${cls}">${label}</span>`
+    const label = STATUS_TEXT[status] ?? status
+    const textCls = STATUS_TEXT_CLASS[status] ?? 'text-gray-600'
+    return `<span class="inline-block text-xs py-0.5 rounded-full font-medium ${textCls}">${label}</span>`
 }
 
-// ─── Icon actions ─────────────────────────────────────────────
-const ICON_EYE = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7
-           -1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-</svg>`
-
-const ICON_EDIT = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5
-           m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-</svg>`
-
+// ─── Tombol aksi ──────────────────────────────────────────────
 function actionButtons(id) {
     return `<div class="flex justify-center gap-1">
         <button data-action="view" data-id="${id}" title="Lihat detail"
             class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
-                font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
-                   DETAIL
+                   font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+            DETAIL
         </button>
         <button data-action="edit" data-id="${id}" title="Edit"
             class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
-                font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
-                   EDIT
+                   font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+            EDIT
         </button>
     </div>`
 }
@@ -107,14 +102,16 @@ function renderPO(data) {
     $('#empty-state').addClass('hidden')
 
     data.forEach((po, i) => {
+        const status = po.status ?? ''
+        const bgCls = STATUS_BG_CLASS[status] ?? ''
         $tbody.append(`
             <tr class="border-t border-gray-100 hover:bg-gray-50 transition">
                 <td class="px-3 py-1 text-center text-gray-400 text-xs border border-gray-200">${i + 1}</td>
-                <td class="px-3 py-1 font-medium text-gray-800 truncate border border-gray-200">${po.no_po}</td>
-                <td class="px-3 py-1 text-gray-600 truncate border border-gray-200">${po.supplier}</td>
-                <td class="px-3 py-1 text-center text-gray-500 text-xs border border-gray-200">${Format.date(po.tanggal)}</td>
-                <td class="px-3 py-1 text-right text-gray-800 tabular-nums border border-gray-200">${Format.currency(po.total)}</td>
-                <td class="px-3 py-1 text-center border border-gray-200 ${STATUS_BG_CLASS[po.status] || ''}">${badge(po.status)}</td>
+                <td class="px-3 py-1 font-medium text-gray-800 truncate border border-gray-200">${po.po_number ?? '-'}</td>
+                <td class="px-3 py-1 text-gray-600 truncate border border-gray-200">${po.supplier_name ?? '-'}</td>
+                <td class="px-3 py-1 text-center text-gray-500 text-xs border border-gray-200">${Format.date(po.po_date)}</td>
+                <td class="px-3 py-1 text-right text-gray-800 tabular-nums border border-gray-200">${Format.currency(po.grand_total ?? 0)}</td>
+                <td class="px-3 py-1 text-center border border-gray-200 ${bgCls}">${badge(status)}</td>
                 <td class="px-3 py-1 border border-gray-200">${actionButtons(po.id)}</td>
             </tr>`)
     })
@@ -126,48 +123,87 @@ function renderRequest(data) {
     $('#badge-count').text(data.length)
     if (!data.length) { $('#empty-state').removeClass('hidden'); return }
     $('#empty-state').addClass('hidden')
+
     data.forEach((req, i) => {
+        const status = req.status ?? ''
+        const bgCls = STATUS_BG_CLASS[status] ?? ''
+        const qtyReq = req.total_qty_requested ?? req.items?.reduce((s, it) => s + (it.qty_requested ?? 0), 0) ?? 0
+        const qtyOrd = req.total_qty_ordered ?? req.items?.reduce((s, it) => s + (it.qty_ordered ?? 0), 0) ?? 0
         $tbody.append(`
             <tr class="border-t border-gray-100 hover:bg-gray-50 transition">
                 <td class="px-3 py-1 text-center text-gray-400 text-xs border border-gray-200">${i + 1}</td>
-                <td class="px-3 py-1 font-medium text-gray-800 truncate border border-gray-200">${req.no_req}</td>
-                <td class="px-3 py-1 text-gray-600 truncate border border-gray-200">${req.supplier}</td>
-                <td class="px-3 py-1 text-gray-500 text-xs border border-gray-200">${Format.date(req.tanggal)}</td>
-                <td class="px-3 py-1 text-right text-gray-800 tabular-nums border border-gray-200">${Format.currency(req.total)}</td>
-                <td class="px-3 py-1 text-center border border-gray-200 ${STATUS_BG_CLASS[req.status] || ''}">${badge(req.status)}</td>
-                <td class="px-3 py-1 border border-gray-200">${actionButtons(req.id)}</td>
+                <td class="px-3 py-1 font-medium text-gray-800 truncate border border-gray-200">${req.pr_number ?? '-'}</td>
+                <td class="px-3 py-1 text-gray-600 truncate border border-gray-200">${req.requester_name ?? '-'}</td>
+                <td class="px-3 py-1 text-center text-gray-500 text-xs border border-gray-200">${Format.date(req.pr_date)}</td>
+                <td class="px-3 py-1 text-right tabular-nums text-gray-800 border border-gray-200">${Format.number(qtyReq)}</td>
+                <td class="px-3 py-1 text-right tabular-nums border border-gray-200 ${qtyOrd > 0 ? 'text-blue-700 font-medium' : 'text-gray-400'}">${Format.number(qtyOrd)}</td>
+                <td class="px-3 py-1 text-center border border-gray-200 ${bgCls}">${badge(status)}</td>
+                <td class="px-3 py-1 border border-gray-200">
+                    <div class="flex justify-center">
+                        <button data-action="view" data-id="${req.id}" title="Lihat detail"
+                            class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
+                                   font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+                            DETAIL
+                        </button>
+                    </div>
+                </td>
             </tr>`)
     })
 }
 
-// ─── Filter ───────────────────────────────────────────────────
+// ─── Filter client-side ───────────────────────────────────────
 function applyFilter() {
     const q = _query.toLowerCase()
     if (_activeTab === 'po') {
         renderPO(_allPO.filter(po =>
-            po.no_po.toLowerCase().includes(q) ||
-            po.supplier.toLowerCase().includes(q)
+            (po.po_number ?? '').toLowerCase().includes(q) ||
+            (po.supplier_name ?? '').toLowerCase().includes(q)
         ))
     } else {
         renderRequest(_allRequest.filter(req =>
-            req.no_req.toLowerCase().includes(q) ||
-            req.supplier.toLowerCase().includes(q)
+            (req.pr_number ?? '').toLowerCase().includes(q) ||
+            (req.requester_name ?? '').toLowerCase().includes(q)
         ))
     }
 }
 
+// ─── Animasi tombol refresh ───────────────────────────────────
+function animateRefresh() {
+    $('#btn-refresh svg').css({ transition: 'transform .5s', transform: 'rotate(360deg)' })
+    setTimeout(() => $('#btn-refresh svg').css({ transition: '', transform: '' }), 500)
+}
+
+// ─── Dummy PO — hapus saat endpoint /purchase-orders sudah siap ──
+const DUMMY_PO = [
+    { id: 1, po_number: 'PO-2024-001', supplier_name: 'PT Sumber Makmur', po_date: '2024-06-01', grand_total: 12500000, status: 'APPROVED' },
+    { id: 2, po_number: 'PO-2024-002', supplier_name: 'CV Jaya Abadi', po_date: '2024-06-03', grand_total: 8750000, status: 'DRAFT' },
+    { id: 3, po_number: 'PO-2024-003', supplier_name: 'PT Maju Bersama', po_date: '2024-06-05', grand_total: 3200000, status: 'PARTIAL_RECEIVED' },
+    { id: 4, po_number: 'PO-2024-004', supplier_name: 'UD Berkah Sejahtera', po_date: '2024-06-07', grand_total: 21000000, status: 'RECEIVED' },
+    { id: 5, po_number: 'PO-2024-005', supplier_name: 'PT Andalan Teknik', po_date: '2024-06-09', grand_total: 6800000, status: 'APPROVED' },
+    { id: 6, po_number: 'PO-2024-006', supplier_name: 'CV Mitra Sejati', po_date: '2024-06-11', grand_total: 4150000, status: 'REJECTED' },
+]
+
 // ─── Load data ────────────────────────────────────────────────
 async function loadData() {
     Loading.show(_activeTab === 'po' ? 'Memuat data PO...' : 'Memuat Request PO...')
-    $('#btn-refresh svg').css({ transition: 'transform .5s', transform: 'rotate(360deg)' })
-    setTimeout(() => $('#btn-refresh svg').css({ transition: '', transform: '' }), 500)
+    animateRefresh()
+
     try {
         if (_activeTab === 'po') {
-            _allPO = DUMMY_PO       // ganti: await Http.get('/purchase-orders')
+            // TODO: ganti dengan Http.get('/purchase-orders', params) saat BE siap
+            _allPO = DUMMY_PO
+
         } else {
-            _allRequest = DUMMY_REQUEST  // ganti: await Http.get('/request-po')
+            // GET /api/purchase-requests
+            const params = { per_page: 100 }
+            if (_warehouseId) params.warehouse_id = _warehouseId
+
+            const res = await Http.get('/purchase-requests', params)
+            _allRequest = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
         }
+
         applyFilter()
+
     } catch (err) {
         Toast.show('Gagal memuat data: ' + err.message, 'error')
     } finally {
@@ -184,8 +220,96 @@ $('#input-search').on('input', function () {
 $('#btn-refresh').on('click', loadData)
 
 $('#btn-add-po').on('click', () => {
+    if (_activeTab === 'po') {
+        _showFormAddPO()
+    } else {
+        _showFormAddRequest()
+    }
+})
+
+$('#btn-history-po').on('click', () => {
+    Modal.alert({
+        title: 'Riwayat Purchase Order',
+        message: 'Fitur riwayat PO belum diimplementasi.',
+    })
+})
+
+$(document).on('click', '[data-action]', function () {
+    const action = $(this).data('action')
+    const id = $(this).data('id')
+    const label = _activeTab === 'po' ? 'PO' : 'Request PO'
+
+    if (action === 'view') {
+        _activeTab === 'po' ? _showDetailPO(id) : _showDetailRequest(id)
+    }
+    if (action === 'edit') {
+        Modal.alert({ title: `Edit ${label}`, message: `Halaman edit #${id} belum diimplementasi.` })
+    }
+})
+
+document.addEventListener('tab:change', ({ detail }) => {
+    _activeTab = detail.tab
+    _query = ''
+    $('#input-search')
+        .val('')
+        .attr('placeholder', _activeTab === 'po'
+            ? 'Cari nomor PO / supplier...'
+            : 'Cari nomor request / requester...'
+        )
+
+    // Sembunyikan tombol tambah di tab Request PO
+    $('#btn-add-po').toggle(_activeTab === 'po')
+
+    // Swap colgroup & thead sesuai tab
+    _updateTableLayout()
+
+    loadData()
+})
+
+function _updateTableLayout() {
+    if (_activeTab === 'po') {
+        $('table colgroup').html(`
+            <col style="width: 40px">
+            <col style="width: 140px">
+            <col style="width: 200px">
+            <col style="width: 110px">
+            <col style="width: 130px">
+            <col style="width: 90px">
+            <col style="width: 200px">`)
+        $('thead tr').html(`
+            <th class="px-3 py-2 text-center border border-gray-300">No</th>
+            <th class="px-3 py-2 text-center border border-gray-300">ID Purchase Order</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Supplier</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Tanggal</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Total</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Status</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Aksi</th>`)
+    } else {
+        $('table colgroup').html(`
+            <col style="width: 40px">
+            <col style="width: 140px">
+            <col style="width: 160px">
+            <col style="width: 100px">
+            <col style="width: 100px">
+            <col style="width: 100px">
+            <col style="width: 90px">
+            <col style="width: 110px">`)
+        $('thead tr').html(`
+            <th class="px-3 py-2 text-center border border-gray-300">No</th>
+            <th class="px-3 py-2 text-center border border-gray-300">No. Request</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Pemohon</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Tanggal</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Qty Request</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Qty Order</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Status</th>
+            <th class="px-3 py-2 text-center border border-gray-300">Aksi</th>`)
+    }
+}
+
+// ─── Form tambah PO ───────────────────────────────────────────
+function _showFormAddPO() {
     Modal.form({
-        title: _activeTab === 'po' ? 'Tambah Purchase Order' : 'Tambah Request PO',
+        title: 'Tambah Purchase Order',
         formHtml: `
             <div class="space-y-3">
                 <div>
@@ -212,35 +336,180 @@ $('#btn-add-po').on('click', () => {
             const supplier = $('#form-supplier').val().trim()
             if (!supplier) { Toast.show('Supplier wajib diisi', 'error'); return }
             Modal.close()
-            Toast.show('Data berhasil disimpan', 'success')
+            Toast.show('Form tambah PO belum diimplementasi ke API.', 'warning')
         },
     })
-})
+}
 
-$('#btn-history-po').on('click', () => {
-    Modal.alert({
-        title: 'Riwayat Purchase Order',
-        message: 'Fitur riwayat PO belum diimplementasi.',
+// ─── Form tambah Request PO ───────────────────────────────────
+function _showFormAddRequest() {
+    Modal.form({
+        title: 'Tambah Request PO',
+        formHtml: `
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Priority</label>
+                    <select id="form-priority"
+                        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2
+                               focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="NORMAL">Normal</option>
+                        <option value="HIGH">High</option>
+                        <option value="URGENT">Urgent</option>
+                        <option value="LOW">Low</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Tanggal Dibutuhkan</label>
+                    <input type="date" id="form-required-date"
+                        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2
+                               focus:outline-none focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Catatan</label>
+                    <textarea id="form-notes" rows="2" placeholder="Catatan opsional..."
+                        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2
+                               focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"></textarea>
+                </div>
+                <p class="text-xs text-orange-600">
+                    ⚠ Item material ditambahkan melalui halaman detail setelah PR dibuat.
+                </p>
+            </div>`,
+        labelSubmit: 'Buat PR',
+        onSubmit: async () => {
+            if (!_warehouseId) {
+                Toast.show('Warehouse tidak terdeteksi. Hubungi admin.', 'error')
+                return
+            }
+
+            const priority = $('#form-priority').val()
+            const requiredDate = $('#form-required-date').val() || null
+            const notes = $('#form-notes').val().trim() || null
+
+            try {
+                Modal.close()
+                Loading.show('Menyimpan request...')
+
+                await Http.post('/purchase-requests', {
+                    warehouse_id: _warehouseId,
+                    requested_by: user?.user_id ?? user?.id,
+                    priority,
+                    required_date: requiredDate,
+                    notes,
+                    items: [],
+                })
+
+                Toast.show('Request PO berhasil dibuat.', 'success')
+                loadData()
+
+            } catch (err) {
+                Toast.show('Gagal menyimpan: ' + err.message, 'error')
+            } finally {
+                Loading.hide()
+            }
+        },
     })
-})
+}
 
-$(document).on('click', '[data-action]', function () {
-    const action = $(this).data('action')
-    const id = $(this).data('id')
-    const label = _activeTab === 'po' ? 'PO' : 'Request PO'
-    if (action === 'view') Modal.alert({ title: `Detail ${label}`, message: `Halaman detail #${id} belum diimplementasi.` })
-    if (action === 'edit') Modal.alert({ title: `Edit ${label}`, message: `Halaman edit #${id} belum diimplementasi.` })
-})
+// ─── Detail PO — sementara dari dummy, ganti Http.get saat BE siap ──
+async function _showDetailPO(id) {
+    // TODO: ganti dengan Http.get(`/purchase-orders/${id}`) saat BE siap
+    const po = DUMMY_PO.find(p => p.id == id)
+    if (!po) { Toast.show('Data PO tidak ditemukan.', 'error'); return }
 
-// ─── Tangkap event tab ────────────────────────────────────────
-document.addEventListener('tab:change', ({ detail }) => {
-    _activeTab = detail.tab
-    _query = ''
-    $('#input-search').val('').attr('placeholder',
-        _activeTab === 'po' ? 'Cari nomor PO / supplier...' : 'Cari nomor request / supplier...'
-    )
-    loadData()
-})
+    Modal.open({
+        title: `Detail PO — ${po.po_number}`,
+        body: `
+            <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                    <div class="text-gray-500">Supplier</div>
+                    <div class="font-medium text-gray-800">${po.supplier_name}</div>
+                    <div class="text-gray-500">Tanggal PO</div>
+                    <div class="text-gray-700">${Format.date(po.po_date)}</div>
+                    <div class="text-gray-500">Status</div>
+                    <div>${badge(po.status)}</div>
+                    <div class="text-gray-500">Grand Total</div>
+                    <div class="font-semibold text-gray-800">${Format.currency(po.grand_total)}</div>
+                </div>
+                <p class="text-xs text-orange-500 border-t pt-2">
+                    ⚠ Detail item akan tersedia setelah endpoint Purchase Order siap.
+                </p>
+            </div>`,
+        actions: `
+            <button id="modal-btn-ok"
+                class="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700
+                       text-white text-sm font-medium transition">Tutup</button>`,
+        onOpen: () => { $('#modal-btn-ok').one('click', () => Modal.close()) },
+    })
+}
+
+// ─── Detail Request PO ────────────────────────────────────────
+async function _showDetailRequest(id) {
+    Loading.show('Memuat detail request...')
+    try {
+        const res = await Http.get(`/purchase-requests/${id}`)
+        const pr = res.data
+
+        const items = pr.items ?? []
+        const itemRows = items.map((item, i) => `
+            <tr class="border-t border-gray-100 text-xs">
+                <td class="py-1 px-2 text-gray-400">${i + 1}</td>
+                <td class="py-1 px-2 text-gray-700">${item.material_code ?? '-'} — ${item.material_name ?? '-'}</td>
+                <td class="py-1 px-2 text-right tabular-nums">${Format.number(item.qty_requested ?? 0)}</td>
+                <td class="py-1 px-2 text-right tabular-nums">${Format.number(item.qty_ordered ?? 0)}</td>
+                <td class="py-1 px-2 text-center">${item.unit_code ?? '-'}</td>
+            </tr>`).join('')
+
+        Modal.open({
+            title: `Detail Request — ${pr.pr_number ?? id}`,
+            body: `
+                <div class="space-y-3 text-sm">
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                        <div class="text-gray-500">Requester</div>
+                        <div class="font-medium text-gray-800">${pr.requester_name ?? '-'}</div>
+                        <div class="text-gray-500">Warehouse</div>
+                        <div class="text-gray-700">${pr.warehouse_name ?? '-'}</div>
+                        <div class="text-gray-500">Tanggal</div>
+                        <div class="text-gray-700">${pr.pr_date ? Format.date(pr.pr_date) : '-'}</div>
+                        <div class="text-gray-500">Priority</div>
+                        <div class="font-medium ${pr.priority === 'URGENT' ? 'text-red-600' : pr.priority === 'HIGH' ? 'text-orange-600' : 'text-gray-700'}">${pr.priority ?? '-'}</div>
+                        <div class="text-gray-500">Status</div>
+                        <div>${badge(pr.status)}</div>
+                        ${pr.notes ? `<div class="text-gray-500">Catatan</div><div class="text-gray-700 col-span-1">${pr.notes}</div>` : ''}
+                    </div>
+                    <div class="border-t pt-2">
+                        <p class="text-xs font-medium text-gray-600 mb-1">Item (${pr.total_items ?? items.length})</p>
+                        <div class="overflow-x-auto max-h-48">
+                            <table class="w-full text-xs">
+                                <thead class="bg-gray-50 text-gray-500 sticky top-0">
+                                    <tr>
+                                        <th class="py-1 px-2 text-left w-6">#</th>
+                                        <th class="py-1 px-2 text-left">Material</th>
+                                        <th class="py-1 px-2 text-right">Requested</th>
+                                        <th class="py-1 px-2 text-right">PO</th>
+                                        <th class="py-1 px-2 text-center">Satuan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${itemRows || '<tr><td colspan="5" class="text-center py-3 text-gray-400">Tidak ada item</td></tr>'}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>`,
+            actions: `
+                <button id="modal-btn-ok"
+                    class="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700
+                        text-white text-sm font-medium transition">Tutup</button>`,
+            onOpen: () => { $('#modal-btn-ok').one('click', () => Modal.close()) },
+        })
+
+    } catch (err) {
+        Toast.show('Gagal memuat detail request: ' + err.message, 'error')
+    } finally {
+        Loading.hide()
+    }
+}
 
 // ─── Init ─────────────────────────────────────────────────────
+// Sesuaikan layout tabel & visibilitas tombol tambah sesuai tab awal
+$('#btn-add-po').toggle(_activeTab === 'po')
+_updateTableLayout()
 loadData()

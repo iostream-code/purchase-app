@@ -5,7 +5,8 @@ import { resolve } from 'path'
 export default defineConfig({
     plugins: [tailwindcss()],
     root: 'src',
-    base: './',   // ← WAJIB untuk Cordova: pakai path relatif, bukan '/'
+    base: './',
+    envDir: '../',   // ← tambahkan ini
     build: {
         outDir: '../www',
         emptyOutDir: true,
