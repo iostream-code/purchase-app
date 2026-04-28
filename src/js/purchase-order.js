@@ -31,17 +31,17 @@ const _warehouseId = user?.warehouse_id ?? null
 
 // ─── Mapping status API → label + warna ───────────────────────
 const STATUS_TEXT = {
-    DRAFT: 'Draft',
-    SUBMITTED: 'Submitted',
-    APPROVED: 'Approved',
-    SENT: 'Sent',
-    PARTIAL_RECEIVED: 'Partial',
-    PARTIAL_ORDERED: 'Partial',
-    RECEIVED: 'Received',
-    ORDERED: 'Ordered',
-    CLOSED: 'Closed',
-    REJECTED: 'Rejected',
-    CANCELLED: 'Cancelled',
+    DRAFT: 'DRAFT',
+    SUBMITTED: 'SUBMITTED',
+    APPROVED: 'APPROVED',
+    SENT: 'SENT',
+    PARTIAL_RECEIVED: 'PARTIAL',
+    PARTIAL_ORDERED: 'PARTIAL',
+    RECEIVED: 'RECEIVED',
+    ORDERED: 'ORDERED',
+    CLOSED: 'CLOSED',
+    REJECTED: 'REJECTED',
+    CANCELLED: 'CANCELLED',
 }
 
 const STATUS_BG_CLASS = {
@@ -82,8 +82,8 @@ function badge(status) {
 function actionButtons(id) {
     return `<div class="flex justify-center gap-1">
         <button data-action="view" data-id="${id}" title="Lihat detail"
-            class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
-                   font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+            class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200 bg-linear-to-br from-white to-gray-50
+                   font-bold text-gray-400">
             DETAIL
         </button>
         <button data-action="edit" data-id="${id}" title="Edit"
@@ -141,8 +141,8 @@ function renderRequest(data) {
                 <td class="px-3 py-1 border border-gray-200">
                     <div class="flex justify-center">
                         <button data-action="view" data-id="${req.id}" title="Lihat detail"
-                            class="w-24 h-8 flex items-center justify-center rounded-md border border-gray-200
-                                   font-bold text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+                            class="w-64 h-8 flex items-center justify-center rounded-md border border-gray-200 bg-linear-to-b from-gray-100 to-gray-300
+                                   font-bold text-gray-500">
                             DETAIL
                         </button>
                     </div>
@@ -450,34 +450,69 @@ async function _showDetailRequest(id) {
         const pr = res.data
 
         const items = pr.items ?? []
+        const canEdit = ['DRAFT', 'SUBMITTED'].includes(pr.status)
+
+        // ── State qty_ordered per item ─────────────────────────────────
+        const _itemQtys = {}
+        items.forEach(item => {
+            _itemQtys[item.id] = item.qty_ordered ?? 0
+        })
+
+        // ── Render satu cell qty_ordered ───────────────────────────────
+        function renderQtyCell(itemId) {
+            const qty = _itemQtys[itemId]
+            if (!canEdit) {
+                return `<span class="text-gray-800 tabular-nums">${Format.number(qty)}</span>`
+            }
+            return `
+                <input type="number" data-qty-item="${itemId}"
+                    class="qty-cell-input w-20 text-right text-xs border border-dashed border-blue-300
+                           rounded px-1.5 py-0.5 text-blue-700 font-medium focus:outline-none
+                           focus:ring-1 focus:ring-blue-400 tabular-nums"
+                    value="${qty}" min="0" step="0.01">`
+        }
+
         const itemRows = items.map((item, i) => `
             <tr class="border-t border-gray-100 text-xs">
                 <td class="py-1 px-2 text-gray-400">${i + 1}</td>
-                <td class="py-1 px-2 text-gray-700">${item.material_code ?? '-'} — ${item.material_name ?? '-'}</td>
-                <td class="py-1 px-2 text-right tabular-nums">${Format.number(item.qty_requested ?? 0)}</td>
-                <td class="py-1 px-2 text-right tabular-nums">${Format.number(item.qty_ordered ?? 0)}</td>
-                <td class="py-1 px-2 text-center">${item.unit_code ?? '-'}</td>
+                <td class="py-1 px-2 whitespace-nowrap text-gray-700">${item.material_code ?? '-'} — ${item.material_name ?? '-'}</td>
+                <td class="py-1 px-2 text-right tabular-nums text-gray-600">${Format.number(item.qty_requested ?? 0)}</td>
+                <td class="py-1 px-2 text-center" id="qty-cell-${item.id}">${renderQtyCell(item.id)}</td>
+                <td class="py-1 px-2 text-center text-gray-600">${item.unit_code ?? '-'}</td>
             </tr>`).join('')
 
         Modal.open({
-            title: `Detail Request — ${pr.pr_number ?? id}`,
+            title: `${pr.pr_number ?? id} — ${pr.priority ?? ''} ${pr.priority === 'URGENT' ? '⚠' : ''}`,
             body: `
                 <div class="space-y-3 text-sm">
                     <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                        <div class="text-gray-500">Requester</div>
-                        <div class="font-medium text-gray-800">${pr.requester_name ?? '-'}</div>
-                        <div class="text-gray-500">Warehouse</div>
-                        <div class="text-gray-700">${pr.warehouse_name ?? '-'}</div>
-                        <div class="text-gray-500">Tanggal</div>
-                        <div class="text-gray-700">${pr.pr_date ? Format.date(pr.pr_date) : '-'}</div>
-                        <div class="text-gray-500">Priority</div>
-                        <div class="font-medium ${pr.priority === 'URGENT' ? 'text-red-600' : pr.priority === 'HIGH' ? 'text-orange-600' : 'text-gray-700'}">${pr.priority ?? '-'}</div>
-                        <div class="text-gray-500">Status</div>
-                        <div>${badge(pr.status)}</div>
-                        ${pr.notes ? `<div class="text-gray-500">Catatan</div><div class="text-gray-700 col-span-1">${pr.notes}</div>` : ''}
+                        <div class="flex flex-col">
+                            <div class="text-gray-500">Oleh</div>
+                            <div class="font-medium text-gray-800">${pr.requester_name ?? '-'}</div>
+                        </div>
+                        <div class="flex flex-col">
+                            <div class="text-gray-500">Departemen</div>
+                            <div class="font-medium text-gray-800">${pr.department_name ?? '-'}</div>
+                        </div>
+                        <div class="flex flex-col">
+                            <div class="text-gray-500">Gudang</div>
+                            <div class="font-medium text-gray-800">${pr.warehouse_name ?? '-'}</div>
+                        </div>
+                        <div class="flex flex-col">
+                            <div class="text-gray-500">Tanggal</div>
+                            <div class="font-medium text-gray-800">${pr.pr_date ? Format.date(pr.pr_date) : '-'}</div>
+                        </div>
+                        <div class="flex flex-col">
+                            <div class="text-gray-500">Status</div>
+                            <div class="font-medium text-gray-800"> ${pr.status ?? ''}</div>
+                        </div>
+                        <div class="flex flex-col">
+                            <div class="text-gray-500">Catatan</div>
+                            <div class="font-medium text-gray-800"> ${pr.notes ?? '-'}</div>
+                        </div>
                     </div>
                     <div class="border-t pt-2">
-                        <p class="text-xs font-medium text-gray-600 mb-1">Item (${pr.total_items ?? items.length})</p>
+                        <p class="text-md font-bold text-gray-600 mb-1">Data | ${pr.total_items ?? items.length}</p>
                         <div class="overflow-x-auto max-h-48">
                             <table class="w-full text-xs">
                                 <thead class="bg-gray-50 text-gray-500 sticky top-0">
@@ -494,11 +529,128 @@ async function _showDetailRequest(id) {
                         </div>
                     </div>
                 </div>`,
-            actions: `
-                <button id="modal-btn-ok"
-                    class="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700
-                        text-white text-sm font-medium transition">Tutup</button>`,
-            onOpen: () => { $('#modal-btn-ok').one('click', () => Modal.close()) },
+            actions: (() => {
+                const canApprove = pr.status === 'SUBMITTED'
+                if (!canApprove) return ''
+                return `
+                        <button id="modal-btn-reject"
+                            class="h-8 px-4 rounded-lg border border-red-300 bg-red-50
+                                   text-red-600 text-sm font-medium hover:bg-red-100 transition">
+                            Tolak
+                        </button>
+                        <button id="modal-btn-approve"
+                            class="h-8 px-4 rounded-lg bg-green-600 hover:bg-green-700
+                                   text-white text-sm font-medium transition">
+                            Approve
+                        </button>`
+            })(),
+            onOpen: () => {
+                // ── Input qty hanya update state lokal, TIDAK auto-save ────
+                // Sinkronkan state saat nilai input berubah
+                if (canEdit) {
+                    $(document).on('input.qtyLocal', '.qty-cell-input', function () {
+                        const itemId = $(this).data('qty-item')
+                        const val = parseFloat($(this).val())
+                        if (!isNaN(val) && val >= 0) {
+                            _itemQtys[itemId] = val
+                            // Hapus highlight error jika ada
+                            $(this).removeClass('border-red-400 bg-red-50')
+                        }
+                    })
+
+                    $('#modal-close').one('click.qtyCleanup', () => {
+                        $(document).off('input.qtyLocal')
+                    })
+                }
+
+                // ── Approve — validasi, lalu kirim qty bersama payload approve ──
+                $('#modal-btn-approve').one('click', () => {
+                    // Baca nilai terkini dari DOM ke state
+                    $('.qty-cell-input').each(function () {
+                        const itemId = $(this).data('qty-item')
+                        const val = parseFloat($(this).val())
+                        if (!isNaN(val)) _itemQtys[itemId] = val
+                    })
+
+                    // Validasi semua item qty > 0
+                    const emptyItems = items.filter(item => (_itemQtys[item.id] ?? 0) <= 0)
+                    if (emptyItems.length > 0) {
+                        const names = emptyItems.map(item => item.material_code ?? ('#' + item.id)).join(', ')
+                        Toast.show('Qty PO belum diisi untuk: ' + names, 'error')
+                        emptyItems.forEach(item => {
+                            $(`#qty-cell-${item.id} input`).addClass('border-red-400 bg-red-50')
+                        })
+                        return
+                    }
+
+                    // Susun payload qty per item
+                    const qtyPayload = items.map(item => ({
+                        id: item.id,
+                        qty_ordered: _itemQtys[item.id],
+                    }))
+
+                    Modal.confirm({
+                        title: 'Konfirmasi Approve',
+                        message: `Setujui Request <strong>${pr.pr_number}</strong>? Pastikan semua qty PO sudah benar.`,
+                        labelOk: 'Ya, Approve',
+                        onOk: async () => {
+                            try {
+                                Loading.show('Memproses approve...')
+                                await Http.post(`/purchase-requests/${id}/approve`, {
+                                    action: 'approve',
+                                    items: qtyPayload,
+                                })
+                                Toast.show('Request berhasil di-approve.', 'success')
+                                $(document).off('input.qtyLocal')
+                                loadData()
+                            } catch (err) {
+                                Toast.show('Gagal approve: ' + err.message, 'error')
+                            } finally {
+                                Loading.hide()
+                            }
+                        },
+                    })
+                })
+
+                // ── Reject ─────────────────────────────────────────────────
+                $('#modal-btn-reject').one('click', () => {
+                    Modal.form({
+                        title: 'Tolak Request',
+                        formHtml: `
+                                <p class="text-xs text-gray-500 mb-2">
+                                    Request <strong>${pr.pr_number}</strong> akan ditolak.
+                                </p>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        Alasan Penolakan <span class="text-red-500">*</span>
+                                    </label>
+                                    <textarea id="form-reject-reason" rows="3"
+                                        placeholder="Jelaskan alasan penolakan..."
+                                        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2
+                                               focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"></textarea>
+                                </div>`,
+                        labelSubmit: 'Tolak Request',
+                        onSubmit: async () => {
+                            const reason = $('#form-reject-reason').val().trim()
+                            if (!reason) { Toast.show('Alasan penolakan wajib diisi.', 'error'); return }
+                            try {
+                                Modal.close()
+                                Loading.show('Memproses penolakan...')
+                                await Http.post(`/purchase-requests/${id}/approve`, {
+                                    action: 'reject',
+                                    rejected_reason: reason,
+                                })
+                                Toast.show('Request berhasil ditolak.', 'success')
+                                loadData()
+                            } catch (err) {
+                                Toast.show('Gagal menolak: ' + err.message, 'error')
+                            } finally {
+                                Loading.hide()
+                            }
+                        },
+                    })
+                })
+            },
         })
 
     } catch (err) {

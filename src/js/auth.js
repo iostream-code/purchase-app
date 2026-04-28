@@ -22,7 +22,6 @@ export function getAuthUser() {
 
 // ─── Login ───────────────────────────────────────────────────
 export async function login(username, password) {
-    // Ganti dengan panggilan API nyata:
     // const data = await Http.post('/auth/login', { username, password })
     // Storage.set('auth_token', data.token)
     // Storage.set('auth_user', data.user)
@@ -31,6 +30,8 @@ export async function login(username, password) {
     if (username === 'admin' && password === '12345') {
         Storage.set('auth_token', 'dummy-token-xyz')
         Storage.set('auth_user', { name: 'Admin', username })
+        Storage.set('department_id', 1)
+        Storage.set('warehouse_id', 1)
         return true
     }
     throw new Error('Username atau password salah')
