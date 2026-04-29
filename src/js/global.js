@@ -46,7 +46,10 @@ export const Toast = {
 }
 
 export const Modal = {
+    _onClose: null,   // callback cleanup — diset oleh open(), dipanggil saat close()
+
     open(opts = {}) {
+        this._onClose = typeof opts.onClose === 'function' ? opts.onClose : null
         $('#modal-title').text(opts.title ?? '')
         $('#modal-body').html(opts.body ?? '')
         $('#modal-actions').html(opts.actions ?? '')
@@ -60,6 +63,11 @@ export const Modal = {
     },
 
     close() {
+        // Jalankan cleanup sebelum menyembunyikan modal
+        if (typeof this._onClose === 'function') {
+            try { this._onClose() } catch { /* abaikan error di cleanup */ }
+            this._onClose = null
+        }
         $('#modal-box')
             .removeClass('translate-y-0 sm:scale-100 opacity-100')
             .addClass('translate-y-full sm:scale-95 opacity-0')
@@ -122,7 +130,13 @@ export const Modal = {
             onOpen: () => {
                 $('#modal-btn-cancel').one('click', () => this.close())
                 $('#modal-btn-submit').one('click', () => opts.onSubmit?.())
+                // Tangkap return value dari onOpen caller sebagai onClose cleanup
+                if (typeof opts.onOpen === 'function') {
+                    const cleanup = opts.onOpen()
+                    if (typeof cleanup === 'function') this._onClose = cleanup
+                }
             },
+            onClose: opts.onClose ?? null,
         })
     },
 }
@@ -183,7 +197,7 @@ export const Http = {
 export const Format = {
     date(iso) {
         return new Date(iso).toLocaleDateString('id-ID', {
-            day: 'numeric', month: 'long', year: 'numeric',
+            day: 'numeric', month: 'short', year: 'numeric',
         })
     },
 
@@ -240,11 +254,19 @@ export function startClock() {
 }
 
 // ─── Connection Check ─────────────────────────────────────────
+// Menggunakan VITE_API_BASE_URL (Http._base) agar aman di Cordova
+// yang berjalan dengan protokol file:// — window.location.origin
+// di sana bernilai "null" sehingga fetch-nya selalu gagal.
 export function startConnectionCheck(intervalMs = 30000) {
+    // Ambil base URL dari env, fallback ke origin jika dijalankan di browser biasa
+    const _apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+    const _pingUrl = _apiBase
+        ? `${_apiBase}/ping`          // endpoint ringan di BE, misal GET /api/ping → {"ok":true}
+        : window.location.origin + '/'
+
     async function check() {
         try {
-            // Fetch dengan no-store agar tidak kena cache browser
-            await fetch(window.location.origin + '/', {
+            await fetch(_pingUrl, {
                 method: 'HEAD',
                 cache: 'no-store',
                 signal: AbortSignal.timeout(5000),
