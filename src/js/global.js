@@ -179,6 +179,21 @@ export const Http = {
             return
         }
 
+        // HEAD / 204 No Content → tidak ada body, langsung return null
+        const hasBody = method !== 'HEAD' && res.status !== 204
+        if (!hasBody) {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            return null
+        }
+
+        // Cek Content-Type sebelum parse JSON agar tidak crash
+        // jika server mengembalikan HTML (misal halaman error)
+        const ct = res.headers.get('Content-Type') ?? ''
+        if (!ct.includes('application/json')) {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            return null
+        }
+
         const data = await res.json()
         if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`)
         return data
@@ -254,32 +269,43 @@ export function startClock() {
 }
 
 // ─── Connection Check ─────────────────────────────────────────
-// Menggunakan VITE_API_BASE_URL (Http._base) agar aman di Cordova
-// yang berjalan dengan protokol file:// — window.location.origin
-// di sana bernilai "null" sehingga fetch-nya selalu gagal.
 export function startConnectionCheck(intervalMs = 30000) {
-    // Ambil base URL dari env, fallback ke origin jika dijalankan di browser biasa
+    // Strip trailing slash agar tidak jadi double slash
     const _apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
+    // Jika VITE_API_BASE_URL tidak diset (dev di browser biasa), fallback ke origin
     const _pingUrl = _apiBase
-        ? `${_apiBase}/ping`          // endpoint ringan di BE, misal GET /api/ping → {"ok":true}
-        : window.location.origin + '/'
+        ? `${_apiBase}/ping`
+        : `${window.location.origin}/ping`
+
+    const $box = $('#connection-check-box')
+
+    /** Set warna indikator: 'checking' | 'online' | 'offline' */
+    function setStatus(status) {
+        $box
+            .removeClass('bg-red-600 bg-green-500 bg-yellow-400')
+            .addClass(
+                status === 'online' ? 'bg-green-500' :
+                    status === 'checking' ? 'bg-yellow-400' :
+                        'bg-red-600'
+            )
+    }
 
     async function check() {
+        setStatus('checking')
         try {
-            await fetch(_pingUrl, {
+            const res = await fetch(_pingUrl, {
                 method: 'HEAD',
                 cache: 'no-store',
                 signal: AbortSignal.timeout(5000),
             })
-            $('#connection-check-box')
-                .removeClass('bg-red-600')
-                .addClass('bg-green-500')
+            // Anggap online hanya jika server merespons 2xx
+            setStatus(res.ok ? 'online' : 'offline')
         } catch {
-            $('#connection-check-box')
-                .removeClass('bg-green-500')
-                .addClass('bg-red-600')
+            setStatus('offline')
         }
     }
+
     check()
     setInterval(check, intervalMs)
 }

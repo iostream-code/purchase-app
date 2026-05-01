@@ -29,7 +29,7 @@ export async function login(username, password) {
     // ── SIMULASI (hapus saat integrasi API) ──
     if (username === 'admin' && password === '12345') {
         Storage.set('auth_token', 'dummy-token-xyz')
-        Storage.set('auth_user', { name: 'Admin', username })
+        Storage.set('auth_user', { name: 'Admin', username, warehouse_id: 1 })
         Storage.set('department_id', 1)
         Storage.set('warehouse_id', 1)
         return true
