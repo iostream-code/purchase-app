@@ -56,8 +56,8 @@ export const Modal = {
         $('#modal-overlay').removeClass('hidden')
         requestAnimationFrame(() => {
             $('#modal-box')
-                .removeClass('translate-y-full sm:scale-95 opacity-0')
-                .addClass('translate-y-0 sm:scale-100 opacity-100')
+                .removeClass('translate-y-full opacity-0')
+                .addClass('translate-y-0 opacity-100')
         })
         if (typeof opts.onOpen === 'function') opts.onOpen()
     },
@@ -69,8 +69,8 @@ export const Modal = {
             this._onClose = null
         }
         $('#modal-box')
-            .removeClass('translate-y-0 sm:scale-100 opacity-100')
-            .addClass('translate-y-full sm:scale-95 opacity-0')
+            .removeClass('translate-y-0 opacity-100')
+            .addClass('translate-y-full opacity-0')
         setTimeout(() => $('#modal-overlay').addClass('hidden'), 200)
     },
 
@@ -335,18 +335,18 @@ export function injectSharedUI() {
     if (!$('#modal-overlay').length) {
         $('body').append(`
       <div id="modal-overlay"
-        class="hidden fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        class="hidden fixed inset-0 z-50 flex items-start justify-center">
 
-        <div id="modal-box" class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl
-                   shadow-xl overflow-hidden
-                   translate-y-full sm:translate-y-0 sm:scale-95 opacity-0
+        <div id="modal-box" class="bg-white w-full h-full flex flex-col
+                   translate-y-full opacity-0
                    transition-all duration-200">
 
           <!-- Modal header -->
-          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 id="modal-title" class="font-semibold text-gray-800 text-base"></h2>
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0
+                      bg-linear-315 from-[#1e40af] to-[#2563eb]">
+            <h2 id="modal-title" class="font-semibold text-white text-base"></h2>
             <button id="modal-close" class="w-7 h-7 flex items-center justify-center rounded-lg
-                       text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+                       text-white/70 hover:bg-white/20 hover:text-white transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M6 18L18 6M6 6l12 12" />
@@ -355,17 +355,16 @@ export function injectSharedUI() {
           </div>
 
           <!-- Modal body -->
-          <div id="modal-body" class="px-5 py-4 text-sm text-gray-600 leading-relaxed"></div>
+          <div id="modal-body" class="flex-1 overflow-y-auto px-5 py-4 text-sm text-gray-600 leading-relaxed"></div>
 
           <!-- Modal actions -->
-          <div id="modal-actions" class="flex gap-2 justify-end px-5 py-3 border-t border-gray-100 bg-gray-50"></div>
+          <div id="modal-actions" class="flex gap-2 justify-end px-5 py-3 border-t border-gray-100 bg-gray-50 shrink-0"></div>
 
         </div>
       </div>
     `)
 
         // Event listener dipasang setelah markup ada di DOM
-        $('#modal-overlay').on('click', function (e) { if (e.target === this) Modal.close() })
         $('#modal-close').on('click', () => Modal.close())
     }
 }
@@ -380,7 +379,7 @@ const NAV_TABS = [
     },
     {
         id: 'retur',
-        label: 'Retur',
+        label: 'Return',
         href: 'retur.html',
     },
 ]

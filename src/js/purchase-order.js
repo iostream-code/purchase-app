@@ -32,13 +32,13 @@ const _warehouseId = user?.warehouse_id ?? null
 // ─── Status mapping ───────────────────────────────────────────
 const STATUS_TEXT = {
     DRAFT: 'DRAFT',
-    SUBMITTED: 'SUBMITTED',
-    APPROVED: 'APPROVED',
-    PARTIAL_ORDERED: 'PARTIAL ORDERED',
-    ORDERED: 'ORDERED',
+    SUBMITTED: 'REQUEST',
+    APPROVED: 'BELUM TERIMA',
+    PARTIAL_ORDERED: 'SEBAGIAN',
+    ORDERED: 'FINISH',
     SENT: 'SENT',
-    PARTIAL_RECEIVED: 'PARTIAL RECEIVED',
-    RECEIVED: 'RECEIVED',
+    PARTIAL_RECEIVED: 'SEBAGIAN',
+    RECEIVED: 'DITERIMA',
     CLOSED: 'CLOSED',
     REJECTED: 'REJECTED',
     CANCELLED: 'CANCELLED',
@@ -47,12 +47,12 @@ const STATUS_TEXT = {
 const STATUS_BG_CLASS = {
     DRAFT: 'bg-gray-50',
     SUBMITTED: 'bg-orange-50',
-    APPROVED: 'bg-green-50',
-    PARTIAL_ORDERED: 'bg-yellow-50',
+    APPROVED: 'bg-gray-50',
+    PARTIAL_ORDERED: 'bg-green-50',
     ORDERED: 'bg-blue-50',
     SENT: 'bg-blue-50',
-    PARTIAL_RECEIVED: 'bg-yellow-50',
-    RECEIVED: 'bg-teal-50',
+    PARTIAL_RECEIVED: 'bg-green-50',
+    RECEIVED: 'bg-blue-50',
     CLOSED: 'bg-gray-100',
     REJECTED: 'bg-red-50',
     CANCELLED: 'bg-red-50',
@@ -61,12 +61,12 @@ const STATUS_BG_CLASS = {
 const STATUS_TEXT_CLASS = {
     DRAFT: 'text-gray-500',
     SUBMITTED: 'text-orange-700',
-    APPROVED: 'text-green-700',
-    PARTIAL_ORDERED: 'text-yellow-700',
+    APPROVED: 'text-gray-700',
+    PARTIAL_ORDERED: 'text-green-700',
     ORDERED: 'text-blue-700',
     SENT: 'text-blue-700',
-    PARTIAL_RECEIVED: 'text-yellow-700',
-    RECEIVED: 'text-teal-700',
+    PARTIAL_RECEIVED: 'text-green-700',
+    RECEIVED: 'text-blue-700',
     CLOSED: 'text-gray-600',
     REJECTED: 'text-red-600',
     CANCELLED: 'text-red-600',
@@ -696,13 +696,13 @@ async function _showDetailRequest(id) {
         }
 
         // ── Render subtotal baris ──────────────────────────────────────
-        // function renderSubtotal(item) {
-        //     const qty = _itemQtys[item.id]
-        //     const price = _itemPrices[item.id]
-        //     return `<span class="subtotal-${item.id} tabular-nums text-gray-700">
-        //                 ${Format.currency(qty * price)}
-        //             </span>`
-        // }
+        function renderSubtotal(item) {
+            const qty = _itemQtys[item.id]
+            const price = _itemPrices[item.id]
+            return `<span class="subtotal-${item.id} tabular-nums text-gray-700">
+                        ${Format.currency(qty * price)}
+                    </span>`
+        }
 
         const itemRows = items.map((item, i) => {
             const qtyReq = (item.qty_requested ?? 0)
@@ -729,6 +729,9 @@ async function _showDetailRequest(id) {
                 </td>
                 <td class="py-1 px-2 text-right" id="price-cell-${item.id}">
                     ${renderPriceCell(item)}
+                </td>
+                <td class="py-1 px-2 text-right" id="subtotal-cell-${item.id}">
+                    ${renderSubtotal(item)}
                 </td>
                 <td class="py-1 px-2 text-center text-gray-600">${item.unit_code ?? '-'}</td>
             </tr>`
@@ -774,15 +777,6 @@ async function _showDetailRequest(id) {
                             <div class="text-gray-500">Departemen</div>
                             <div class="font-medium text-gray-800">${pr.department_name ?? '-'}</div>
                         </div>
-                        ${['ORDERED', 'PARTIAL_ORDERED'].includes(pr.status) ? `
-                        <div>
-                            <div class="text-gray-500">Diapprove oleh</div>
-                            <div class="font-medium text-gray-800">${pr.approver_name ?? '-'}</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-500">Tgl Approve</div>
-                            <div class="font-medium text-gray-800">${pr.approved_at ? Format.date(pr.approved_at) : '-'}</div>
-                        </div>` : ''}
                         ${pr.status === 'REJECTED' ? `
                         <div class="col-span-2">
                             <div class="text-gray-500">Alasan Penolakan</div>
@@ -850,15 +844,10 @@ async function _showDetailRequest(id) {
             actions: (() => {
                 if (!canApprove) return ''
                 return `
-                    <button id="modal-btn-reject"
-                        class="h-8 px-4 rounded-lg border border-red-300 bg-red-50
-                               text-red-600 text-sm font-medium hover:bg-red-100 transition">
-                        Tolak
-                    </button>
                     <button id="modal-btn-approve"
                         class="h-8 px-4 rounded-lg bg-green-600 hover:bg-green-700
                                text-white text-sm font-medium transition">
-                        Approve
+                        PO
                     </button>`
             })(),
 
@@ -1115,8 +1104,8 @@ async function _showDetailPO(id) {
                                     <tr>
                                         <th class="py-1 px-2 text-left">No</th>
                                         <th class="py-1 px-2 text-left">Material</th>
-                                        <th class="py-1 px-2 text-right whitespace-nowrap">Qty Order</th>
-                                        <th class="py-1 px-2 text-right whitespace-nowrap">Qty Terima</th>
+                                        <th class="py-1 px-2 text-right whitespace-nowrap">PO</th>
+                                        <th class="py-1 px-2 text-right whitespace-nowrap">Diterima</th>
                                         <th class="py-1 px-2 text-center">Satuan</th>
                                         <th class="py-1 px-2 text-right">Harga</th>
                                         <th class="py-1 px-2 text-right">Subtotal</th>

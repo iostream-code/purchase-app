@@ -2,15 +2,17 @@
 <html lang="id">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Retur Pembelian</title>
-    <link rel="stylesheet" href="../css/main.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
+    <title>Purchase Retur</title>
+    <link rel="stylesheet" href="../css/main.css" />
 </head>
 
 <body class="bg-gray-50 h-dvh flex flex-col overflow-hidden">
 
-    <!-- Header + Navbar diinjek oleh injectHeader('retur') di retur.js -->
+    <!-- Header & Navbar — diinjeksi oleh injectHeader('purchase-retur') di retur.js -->
 
     <!-- Konten utama -->
     <div class="flex-1 overflow-hidden p-2">
@@ -25,17 +27,12 @@
                     <span id="badge-count" class="text-lg text-gray-800 font-medium">0</span>
                 </div>
                 <div class="flex items-center gap-2">
+                    <!-- Refresh -->
                     <button id="btn-refresh" title="Refresh" class="w-8 h-8 flex items-center justify-center rounded-lg border bg-white border-gray-800
                                text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                    </button>
-                    <button id="btn-add-retur" class="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-green-200
-                               bg-green-50 text-green-700 text-sm font-medium hover:bg-green-100 transition">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
                     </button>
                 </div>
@@ -51,8 +48,24 @@
                     </svg>
                     <input id="input-search" type="search" class="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg
                                focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
-                        placeholder="Cari nomor retur / referensi PO...">
+                        placeholder="Cari no. retur, PO, supplier..." />
                 </div>
+            </div>
+
+            <!-- Tab filter status -->
+            <div class="flex gap-1 px-2 py-2 border-b border-gray-100 shrink-0">
+                <button data-tab="all" class="flex-1 py-1.5 text-xs font-semibold border rounded-lg transition
+                           bg-blue-600 text-white border-blue-600">
+                    Semua
+                </button>
+                <button data-tab="submitted" class="flex-1 py-1.5 text-xs font-semibold border rounded-lg transition
+                           text-gray-600 border-gray-300 hover:bg-gray-100/60">
+                    Menunggu
+                </button>
+                <button data-tab="approved" class="flex-1 py-1.5 text-xs font-semibold border rounded-lg transition
+                           text-gray-600 border-gray-300 hover:bg-gray-100/60">
+                    Disetujui
+                </button>
             </div>
 
             <!-- Tabel -->
@@ -62,22 +75,24 @@
                         <col style="width: 40px">
                         <col style="width: 140px">
                         <col style="width: 140px">
-                        <col style="width: 110px">
-                        <col style="width: 130px">
+                        <col style="width: 200px">
                         <col style="width: 120px">
-                        <col style="width: 90px">
+                        <col style="width: 80px">
+                        <col style="width: 120px">
+                        <col style="width: 140px">
                         <col style="width: 200px">
                     </colgroup>
                     <thead class="bg-gray-100 text-xs text-gray-500 font-medium sticky top-0 z-10">
                         <tr>
-                            <th class="px-3 py-2.5 text-center border border-gray-300">No</th>
-                            <th class="px-3 py-2.5 text-left border border-gray-300">No Retur</th>
-                            <th class="px-3 py-2.5 text-left border border-gray-300">Ref PO</th>
-                            <th class="px-3 py-2.5 text-left border border-gray-300">Tanggal</th>
-                            <th class="px-3 py-2.5 text-right border border-gray-300">Total</th>
-                            <th class="px-3 py-2.5 text-left border border-gray-300">Alasan</th>
-                            <th class="px-3 py-2.5 text-center border border-gray-300">Status</th>
-                            <th class="px-3 py-2.5 text-center border border-gray-300">Aksi</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">No</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">No Retur</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Ref PO</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Supplier</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Tanggal</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Total Qty</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Disposisi</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Status</th>
+                            <th class="px-3 py-2 text-center border border-gray-300">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="tbl-body"></tbody>
@@ -86,7 +101,12 @@
 
             <!-- Empty state -->
             <div id="empty-state" class="hidden py-16 flex flex-col items-center text-gray-400">
-                <p class="text-sm">Belum ada data Retur</p>
+                <svg class="w-10 h-10 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586
+                             a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19
+                             a2 2 0 01-2 2z" />
+                </svg>
+                <p class="text-sm">Tidak ada dokumen retur</p>
             </div>
 
         </div>
