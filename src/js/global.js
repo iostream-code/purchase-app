@@ -374,7 +374,7 @@ export function injectSharedUI() {
 const NAV_TABS = [
     {
         id: 'purchase-order',
-        label: 'Purchase Order',
+        label: 'Purchase',
         href: 'purchase-order.html',
     },
     {
@@ -431,7 +431,7 @@ export function injectHeader(activeNavId) {
     const tabs = NAV_TABS.map(tab => {
         const isActive = tab.id === activeNavId
         const cls = isActive
-            ? 'bg-[#2563eb] text-white font-bold border border-blue-700'
+            ? 'bg-[#f97316] text-white font-bold border border-orange-700'
             : 'text-gray-600 font-semibold hover:bg-gray-100/60 border border-gray-300'
         return `
             <a href="${tab.href}"

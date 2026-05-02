@@ -17,12 +17,12 @@
         <button id="tab-request" data-tab="request" class="tab-btn flex-1 flex items-center justify-center py-2.5 text-sm
                        font-semibold transition-colors
                        text-gray-600 hover:bg-gray-100/60 border border-gray-300">
-            Request PO
+            Request
         </button>
         <button id="tab-po" data-tab="po" class="tab-btn flex-1 flex items-center justify-center py-2.5 text-sm
                        font-bold transition-colors
-                       bg-[#2563eb] text-white border border-blue-700">
-            Purchase Order
+                       bg-[#f97316] text-white border border-orange-700">
+            Order
         </button>
     </div>
 
@@ -132,11 +132,11 @@
             btn.addEventListener('click', function () {
                 // Reset semua tab ke style non-aktif
                 document.querySelectorAll('.tab-btn').forEach(function (t) {
-                    t.classList.remove('bg-[#2563eb]', 'text-white', 'font-bold', 'border-blue-700')
+                    t.classList.remove('bg-[#f97316]', 'text-white', 'font-bold', 'border-orange-700')
                     t.classList.add('text-gray-600', 'font-semibold', 'border-gray-300')
                 })
                 // Aktifkan tab yang diklik
-                this.classList.add('bg-[#2563eb]', 'text-white', 'font-bold', 'border-blue-700')
+                this.classList.add('bg-[#f97316]', 'text-white', 'font-bold', 'border-orange-700')
                 this.classList.remove('text-gray-600', 'font-semibold', 'border-gray-300')
 
                 document.dispatchEvent(new CustomEvent('tab:change', {

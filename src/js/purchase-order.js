@@ -174,13 +174,17 @@ async function loadData() {
             const params = { per_page: 100 }
             if (_warehouseId) params.warehouse_id = _warehouseId
             const res = await Http.get('/purchase-orders', params)
-            _allPO = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+            const raw = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+            // Halaman utama hanya tampilkan status aktif (bukan ORDERED / RECEIVED)
+            _allPO = raw.filter(po => !['ORDERED', 'RECEIVED'].includes(po.status))
 
         } else {
             const params = { per_page: 100 }
             if (_warehouseId) params.warehouse_id = _warehouseId
             const res = await Http.get('/purchase-requests', params)
-            _allRequest = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+            const raw = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+            // Halaman utama hanya tampilkan request yang belum selesai (bukan ORDERED)
+            _allRequest = raw.filter(req => req.status !== 'ORDERED')
         }
 
         applyFilter()
@@ -197,7 +201,6 @@ function _syncToolbarButtons() {
     const isPO = _activeTab === 'po'
     $('#btn-history-po').toggle(isPO)
     $('#btn-history-request').toggle(!isPO)
-    $('#btn-add-request').toggle(!isPO)
 }
 
 // ─── Events ───────────────────────────────────────────────────
@@ -207,7 +210,6 @@ $('#input-search').on('input', function () {
 })
 
 $('#btn-refresh').on('click', loadData)
-$('#btn-add-request').on('click', () => _showFormAddRequest())
 $('#btn-history-po').on('click', () => _showHistoryPO())
 $('#btn-history-request').on('click', () => _showHistoryRequest())
 
@@ -264,300 +266,6 @@ function _updateTableLayout() {
             <th class="px-3 py-2 text-center border border-gray-300">Status</th>
             <th class="px-3 py-2 text-center border border-gray-300">Aksi</th>`)
     }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  FORM TAMBAH REQUEST — step 1: header, step 2: pilih items + qty + harga
-// ═════════════════════════════════════════════════════════════════════════════
-
-/**
- * State form: list item yang sudah ditambahkan user
- * [{ material_id, material_code, material_name, unit_code, qty_requested, estimated_unit_price, notes }]
- */
-let _formItems = []
-
-// Cache stock info dari dashboard: { [material_id]: { qty_stock, qty_needed } }
-let _dashboardStockMap = {}
-
-// =============================================================================
-//  MAIN: Buka popup form "Buat Request PO"
-// =============================================================================
-function _showFormAddRequest() {
-    _formItems = []
-
-    if (!_warehouseId) {
-        Toast.show('Warehouse tidak terdeteksi. Hubungi admin.', 'error')
-        return
-    }
-
-    const OID = 'pr-form-overlay'
-    $(`#${OID}`).remove()
-
-    $('body').append(`
-        <div id="${OID}"
-             class="fixed inset-0 z-[998] flex items-end sm:items-center justify-center"
-             style="background:rgba(0,0,0,.45)">
- 
-            <div class="bg-white w-full max-w-xl mx-2 rounded-2xl shadow-2xl
-                        flex flex-col overflow-hidden"
-                 style="max-height:92vh">
- 
-                <!-- ── Header ──────────────────────────────────────── -->
-                <div class="flex items-center justify-between px-4 py-3 flex-shrink-0 bg-blue-600">
-                    <h2 class="font-bold text-white text-sm tracking-widest">
-                        BUAT REQUEST PO
-                    </h2>
-                    <button id="pr-close-btn"
-                            class="text-white hover:text-blue-100 text-2xl leading-none">&times;</button>
-                </div>
- 
-                <!-- ── Tabel item (scrollable) ──────────────────────── -->
-                <div class="overflow-auto flex-1 px-3 pt-3 pb-1">
-                    <table class="w-full text-xs border-collapse">
-                        <thead>
-                            <tr class="bg-blue-600 text-white">
-                                <th class="py-2 px-3 text-left font-semibold rounded-tl-lg">BARANG</th>
-                                <th class="py-2 px-3 text-center font-semibold whitespace-nowrap">QTY</th>
-                                <th class="py-2 px-3 text-center font-semibold whitespace-nowrap">CATATAN</th>
-                                <th class="py-2 px-2 rounded-tr-lg"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="pr-items-tbody">
-                            <tr id="pr-empty-row">
-                                <td colspan="4"
-                                    class="text-center py-6 text-gray-400 text-xs">
-                                    Belum ada item. Klik
-                                    <strong class="text-blue-500">+ Tambah Material</strong>.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
- 
-                    <!-- Tombol tambah material -->
-                    <button type="button" id="pr-btn-add"
-                        class="mt-2 mb-3 w-full h-9 rounded-xl border-2 border-dashed
-                               border-blue-300 text-blue-500 hover:bg-blue-50
-                               text-xs font-semibold transition flex items-center justify-center gap-1">
-                        + Tambah Material
-                    </button>
-                </div>
- 
-                <!-- ── Footer: Prioritas + Catatan + Submit ─────────── -->
-                <div class="flex-shrink-0 px-4 pb-5 pt-3 border-t border-gray-100 space-y-3">
- 
-                    <!-- Prioritas pill-buttons -->
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                            PRIORITAS <span class="text-red-400">*</span>
-                        </label>
-                        <div class="grid grid-cols-4 gap-1.5">
-                            ${_priorityPillsHtml('NORMAL')}
-                        </div>
-                    </div>
- 
-                    <!-- Catatan global -->
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                            CATATAN
-                        </label>
-                        <textarea id="pr-notes" rows="2"
-                            placeholder="Contoh: urgent untuk SPK-042"
-                            class="w-full text-xs border border-gray-200 rounded-xl px-3 py-2
-                                   focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none">
-                        </textarea>
-                    </div>
- 
-                    <!-- Submit -->
-                    <button type="button" id="pr-btn-submit"
-                        class="w-full h-11 rounded-xl font-bold text-sm text-white
-                               tracking-widest bg-blue-600 hover:bg-blue-700
-                               active:bg-blue-800 transition">
-                        KIRIM REQUEST PO
-                    </button>
-                </div>
-            </div>
-        </div>`)
-
-    // ── Tutup overlay ──────────────────────────────────────────────────────
-    function _closeOverlay() {
-        $(`#${OID}`).remove()
-        $(document).off('click.prForm')
-    }
-
-    $(`#${OID}`).on('click', function (e) {
-        if (e.target.id === OID) _closeOverlay()
-    })
-    $('#pr-close-btn').on('click', _closeOverlay)
-
-    // ── Priority toggle ────────────────────────────────────────────────────
-    $(document).on('click.prForm', '.pr-priority-btn', function () {
-        $('.pr-priority-btn')
-            .removeClass('bg-blue-600 border-blue-600 text-white')
-            .addClass('bg-white border-gray-200 text-gray-500')
-        $(this)
-            .removeClass('bg-white border-gray-200 text-gray-500')
-            .addClass('bg-blue-600 border-blue-600 text-white')
-    })
-
-    // ── Tambah material ────────────────────────────────────────────────────
-    $(document).on('click.prForm', '#pr-btn-add', function () {
-        _showMaterialPicker(function (material) {
-            // Guard duplikat
-            if (_formItems.find(it => it.material_id === material.id)) {
-                Toast.show(`"${material.name}" sudah ada di daftar.`, 'warning')
-                return
-            }
-            _formItems.push({
-                material_id: material.id,
-                material_code: material.code,
-                material_name: material.name,
-                unit_code: material.unit_code ?? material.unit?.code ?? '-',
-                qty_requested: 1,
-                notes: '',
-            })
-            _rerenderFormItems()
-        })
-    })
-
-    // ── Hapus baris ────────────────────────────────────────────────────────
-    $(document).on('click.prForm', '.pr-btn-remove', function () {
-        const idx = parseInt($(this).data('idx'))
-        if (!isNaN(idx)) {
-            _formItems.splice(idx, 1)
-            _rerenderFormItems()
-        }
-    })
-
-    // ── Submit ─────────────────────────────────────────────────────────────
-    $(document).on('click.prForm', '#pr-btn-submit', async function () {
-        _syncFormItemsFromDOM()
-
-        if (_formItems.length === 0) {
-            Toast.show('Minimal 1 item harus ditambahkan.', 'error')
-            return
-        }
-
-        const badQty = _formItems.filter(it => !(it.qty_requested > 0))
-        if (badQty.length) {
-            Toast.show('QTY REQUEST harus lebih dari 0 untuk semua item.', 'error')
-            return
-        }
-
-        const priority = $('.pr-priority-btn.bg-blue-600').data('priority') ?? 'NORMAL'
-        const notes = $('#pr-notes').val().trim() || null
-
-        _closeOverlay()
-        Loading.show('Menyimpan purchase request...')
-
-        try {
-            await Http.post('/purchase-requests', {
-                warehouse_id: _warehouseId,
-                requested_by: user?.user_id ?? user?.id ?? null,
-                priority,
-                notes,
-                items: _formItems.map(it => ({
-                    material_id: it.material_id,
-                    qty_requested: it.qty_requested,
-                    estimated_unit_price: 0,
-                    notes: it.notes ?? null,
-                })),
-            })
-
-            Toast.show('Purchase Request berhasil dibuat.', 'success')
-            loadData()
-
-        } catch (err) {
-            Toast.show('Gagal menyimpan: ' + err.message, 'error')
-        } finally {
-            Loading.hide()
-        }
-    })
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  MATERIAL PICKER (overlay)
-// ═════════════════════════════════════════════════════════════════════════════
-function _showMaterialPicker(onSelect) {
-    const pickerId = 'material-picker-overlay'
-    $(`#${pickerId}`).remove()
-
-    // Sementara daftar material dari API — ganti ke Http.get('/materials') sesuai endpoint Anda
-    Loading.show('Memuat material...')
-
-    // Ambil material dari API; sesuaikan endpoint & params
-    Http.get('/shared/materials', { warehouse_id: _warehouseId, per_page: 200 })
-        .then(res => {
-            Loading.hide()
-            const materials = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
-
-            $('body').append(`
-                <div id="${pickerId}"
-                    class="fixed inset-0 z-[999] flex items-end justify-center sm:items-center"
-                    style="background:rgba(0,0,0,0.25)">
-                    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
-                        <div class="flex items-center justify-between px-4 py-3 border-b">
-                            <p class="font-semibold text-sm text-gray-800">Pilih Material</p>
-                            <button id="mat-picker-close" class="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
-                        </div>
-                        <div class="px-3 pt-2 pb-1">
-                            <input type="text" id="mat-picker-search" placeholder="Cari kode / nama..."
-                                class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5
-                                       focus:outline-none focus:ring-2 focus:ring-blue-200">
-                        </div>
-                        <div id="mat-picker-list" class="overflow-y-auto max-h-64 p-1">
-                            ${materials.length
-                    ? materials.map(m => `
-                                    <button class="mat-picker-item w-full text-left px-3 py-2 rounded-lg
-                                                   hover:bg-blue-50 transition text-xs"
-                                            data-id="${m.id}" data-code="${m.code ?? ''}"
-                                            data-name="${m.name ?? ''}"
-                                            data-unit="${m.unit_code ?? m.unit?.code ?? '-'}"
-                                            data-price="${m.default_unit_cost ?? 0}">
-                                        <span class="font-medium text-gray-700">${m.code ?? '-'}</span>
-                                        <span class="ml-1 text-gray-500">${m.name ?? '-'}</span>
-                                        <span class="ml-1 text-gray-400">(${m.unit_code ?? m.unit?.code ?? '-'})</span>
-                                    </button>`).join('')
-                    : '<p class="text-xs text-gray-400 text-center py-4">Tidak ada material.</p>'
-                }
-                        </div>
-                    </div>
-                </div>`)
-
-            // Search filter
-            $('#mat-picker-search').on('input', function () {
-                const q = $(this).val().toLowerCase()
-                $('#mat-picker-list .mat-picker-item').each(function () {
-                    const match = ($(this).data('code') + ' ' + $(this).data('name')).toLowerCase().includes(q)
-                    $(this).toggle(match)
-                })
-            }).trigger('focus')
-
-            // Pilih item
-            $(document).on('click.matPicker', '.mat-picker-item', function () {
-                const mat = {
-                    id: $(this).data('id'),
-                    code: $(this).data('code'),
-                    name: $(this).data('name'),
-                    unit_code: $(this).data('unit'),
-                    default_unit_cost: $(this).data('price'),
-                }
-                $(`#${pickerId}`).remove()
-                $(document).off('click.matPicker')
-                onSelect(mat)
-            })
-
-            // Tutup
-            $('#mat-picker-close, #' + pickerId).on('click', function (e) {
-                if (e.target.id === pickerId || e.target.id === 'mat-picker-close') {
-                    $(`#${pickerId}`).remove()
-                    $(document).off('click.matPicker')
-                }
-            })
-        })
-        .catch(err => {
-            Loading.hide()
-            Toast.show('Gagal memuat material: ' + err.message, 'error')
-        })
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1217,29 +925,20 @@ async function _showHistoryRequest() {
         const params = { per_page: 200 }
         if (_warehouseId) params.warehouse_id = _warehouseId
 
-        // Ambil data dari endpoint PO — bukan PR — karena yang ingin ditampilkan
-        // adalah PO yang sudah terbuat, dengan PR sebagai referensi nomor request-nya.
-        const res = await Http.get('/purchase-orders', params)
-        const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+        // Ambil dari endpoint Purchase Request, filter hanya yang ORDERED
+        const res = await Http.get('/purchase-requests', params)
+        const raw = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+        const data = raw.filter(req => req.status === 'ORDERED')
 
-        const rows = data.map((po, i) => {
-            const status = po.status ?? ''
-            const bgCls = STATUS_BG_CLASS[status] ?? ''
-            return `<tr class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
-                        data-action="view-request-history" data-id="${po.id}">
-                        <td class="py-1.5 px-2 text-gray-400 text-xs text-center border border-gray-100">${i + 1}</td>
-                        <td class="py-1.5 px-2 font-medium text-blue-700 text-xs border border-gray-100 whitespace-nowrap">
-                            ${po.pr_number
-                    ? `<span title="No. Purchase Request" class="inline-block">${po.pr_number}</span>`
-                    : `<span class="text-gray-300">—</span>`}
-                        </td>
-                        <td class="py-1.5 px-2 font-medium text-gray-800 text-xs border border-gray-100">${po.po_number ?? '-'}</td>
-                        <td class="py-1.5 px-2 text-gray-600 text-xs truncate border border-gray-100">${po.supplier_name ?? '-'}</td>
-                        <td class="py-1.5 px-2 text-gray-500 text-xs text-center border border-gray-100 whitespace-nowrap">${Format.date(po.po_date)}</td>
-                        <td class="py-1.5 px-2 text-right tabular-nums text-gray-800 text-xs border border-gray-100">${Format.currency(po.grand_total ?? 0)}</td>
-                        <td class="py-1.5 px-2 text-center text-xs border border-gray-100 whitespace-nowrap ${bgCls}">${badge(status)}</td>
-                    </tr>`
-        }).join('')
+        const rows = data.map((req, i) =>
+            `<tr class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                 data-action="view-request" data-id="${req.id}">
+                 <td class="py-1.5 px-2 text-gray-400 text-xs text-center border border-gray-100">${i + 1}</td>
+                 <td class="py-1.5 px-2 font-medium text-blue-700 text-xs border border-gray-100 whitespace-nowrap">${req.pr_number ?? '-'}</td>
+                 <td class="py-1.5 px-2 text-gray-600 text-xs truncate border border-gray-100">${req.requester_name ?? '-'}</td>
+                 <td class="py-1.5 px-2 text-gray-500 text-xs text-center border border-gray-100 whitespace-nowrap">${Format.date(req.pr_date)}</td>
+             </tr>`
+        ).join('')
 
         Modal.open({
             title: 'Riwayat Request Order',
@@ -1248,34 +947,27 @@ async function _showHistoryRequest() {
                             <thead class="bg-gray-100 text-gray-500 sticky top-0">
                                 <tr>
                                     <th class="py-1.5 px-2 border border-gray-200 text-center">No</th>
-                                    <th class="py-1.5 px-2 border border-gray-200 text-left text-blue-600 whitespace-nowrap">No. Request</th>
-                                    <th class="py-1.5 px-2 border border-gray-200 text-left">No. PO</th>
-                                    <th class="py-1.5 px-2 border border-gray-200 text-left">Supplier</th>
-                                    <th class="py-1.5 px-2 border border-gray-200 text-center whitespace-nowrap">Tanggal PO</th>
-                                    <th class="py-1.5 px-2 border border-gray-200 text-right">Grand Total</th>
-                                    <th class="py-1.5 px-2 border border-gray-200 text-center">Status</th>
+                                    <th class="py-1.5 px-2 border border-gray-200 text-left whitespace-nowrap">No. Request</th>
+                                    <th class="py-1.5 px-2 border border-gray-200 text-left">Pemohon</th>
+                                    <th class="py-1.5 px-2 border border-gray-200 text-center whitespace-nowrap">Tanggal</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${rows || '<tr><td colspan="7" class="text-center py-4 text-gray-400">Tidak ada data</td></tr>'}
+                                ${rows || '<tr><td colspan="4" class="text-center py-4 text-gray-400">Tidak ada data</td></tr>'}
                             </tbody>
                         </table>
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">
-                        <span class="text-blue-600 font-medium">No. Request</span> = nomor Purchase Request asal.
-                        Klik baris untuk melihat detail PO.
-                    </p>`,
+                    <p class="text-xs text-gray-400 mt-2">Klik baris untuk melihat detail request.</p>`,
             actions: '',
             onOpen: () => {
-                $('#modal-body').on('click', '[data-action="view-request-history"]', function () {
-                    const poId = $(this).data('id')
+                $('#modal-body').on('click', '[data-action="view-request"]', function () {
+                    const reqId = $(this).data('id')
                     Modal.close()
-                    setTimeout(() => _showDetailPO(poId), 220)
+                    setTimeout(() => _showDetailRequest(reqId), 220)
                 })
             },
-            // Cleanup delegated click saat modal ditutup
             onClose: () => {
-                $('#modal-body').off('click', '[data-action="view-request-history"]')
+                $('#modal-body').off('click', '[data-action="view-request"]')
             },
         })
     } catch (err) {
@@ -1295,19 +987,28 @@ async function _showHistoryPO() {
         if (_warehouseId) params.warehouse_id = _warehouseId
 
         const res = await Http.get('/purchase-orders', params)
-        const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+        const raw = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+        // History hanya berisi PO yang sudah selesai (ORDERED / RECEIVED)
+        const data = raw.filter(po => ['ORDERED', 'RECEIVED'].includes(po.status))
 
         const rows = data.map((po, i) => {
             const status = po.status ?? ''
-            const bgCls = STATUS_BG_CLASS[status] ?? ''
-            return `<tr class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
-                        data-action="view-po-history" data-id="${po.id}">
+            const btnCls = status === 'RECEIVED'
+                ? 'bg-green-600 hover:bg-green-700 text-white border-green-700'
+                : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700'
+            const btnLabel = status === 'RECEIVED' ? 'DITERIMA' : 'ORDERED'
+            return `<tr class="border-t border-gray-100 hover:bg-gray-50">
                         <td class="py-1.5 px-2 text-gray-400 text-xs text-center border border-gray-100">${i + 1}</td>
-                        <td class="py-1.5 px-2 font-medium text-gray-800 text-xs border border-gray-100">${po.po_number ?? '-'}</td>
+                        <td class="py-1.5 px-2 font-medium text-gray-800 text-xs border border-gray-100 whitespace-nowrap">${po.po_number ?? '-'}</td>
                         <td class="py-1.5 px-2 text-gray-600 text-xs truncate border border-gray-100">${po.supplier_name ?? '-'}</td>
                         <td class="py-1.5 px-2 text-gray-500 text-xs text-center border border-gray-100 whitespace-nowrap">${Format.date(po.po_date)}</td>
                         <td class="py-1.5 px-2 text-right tabular-nums text-gray-800 text-xs border border-gray-100">${Format.currency(po.grand_total ?? 0)}</td>
-                        <td class="py-1.5 px-2 text-center text-xs border border-gray-100 whitespace-nowrap ${bgCls}">${badge(status)}</td>
+                        <td class="py-1.5 px-2 text-center border border-gray-100">
+                            <button data-action="view-receive" data-id="${po.id}" data-po-number="${po.po_number ?? ''}"
+                                class="h-6 px-2.5 rounded border text-xs font-bold transition ${btnCls}">
+                                ${btnLabel}
+                            </button>
+                        </td>
                     </tr>`
         }).join('')
 
@@ -1322,25 +1023,25 @@ async function _showHistoryPO() {
                                     <th class="py-1.5 px-2 border border-gray-200 text-left whitespace-nowrap">Supplier</th>
                                     <th class="py-1.5 px-2 border border-gray-200 whitespace-nowrap">Tanggal</th>
                                     <th class="py-1.5 px-2 border border-gray-200 text-right whitespace-nowrap">Grand Total</th>
-                                    <th class="py-1.5 px-2 border border-gray-200 whitespace-nowrap">Status</th>
+                                    <th class="py-1.5 px-2 border border-gray-200 whitespace-nowrap">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${rows || '<tr><td colspan="6" class="text-center py-4 text-gray-400">Tidak ada data</td></tr>'}
                             </tbody>
                         </table>
-                    </div>
-                    <p class="text-xs text-gray-400 mt-2">Klik baris untuk melihat detail PO.</p>`,
+                    </div>`,
             actions: '',
             onOpen: () => {
-                $('#modal-body').on('click', '[data-action="view-po-history"]', function () {
+                $('#modal-body').on('click', '[data-action="view-receive"]', function () {
                     const poId = $(this).data('id')
+                    const poNumber = $(this).data('po-number')
                     Modal.close()
-                    setTimeout(() => _showDetailPO(poId), 220)
+                    setTimeout(() => _showDetailReceive(poId, poNumber), 220)
                 })
             },
             onClose: () => {
-                $('#modal-body').off('click', '[data-action="view-po-history"]')
+                $('#modal-body').off('click', '[data-action="view-receive"]')
             },
         })
     } catch (err) {
@@ -1350,121 +1051,109 @@ async function _showHistoryPO() {
     }
 }
 
-// =============================================================================
-//  HELPER: HTML pill priority
-// =============================================================================
-function _priorityPillsHtml(defaultPriority = 'NORMAL') {
-    const labels = { LOW: 'Low', NORMAL: 'Normal', HIGH: 'High', URGENT: 'Urgent' }
-    return Object.entries(labels).map(([val, label]) => {
-        const isActive = val === defaultPriority
-        const cls = isActive
-            ? 'bg-blue-600 border-blue-600 text-white'
-            : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'
-        return `
-            <button type="button" data-priority="${val}"
-                class="pr-priority-btn h-8 rounded-lg border text-xs font-semibold transition ${cls}">
-                ${label}
-            </button>`
-    }).join('')
-}
 
-// =============================================================================
-//  HELPER: Render ulang tbody
-// =============================================================================
-function _rerenderFormItems() {
-    const $tbody = $('#pr-items-tbody')
-    if (!$tbody.length) return
-    $tbody.empty()
+// ═════════════════════════════════════════════════════════════════════════════
+//  DETAIL RECEIVED — daftar dokumen penerimaan dari satu PO
+// ═════════════════════════════════════════════════════════════════════════════
+async function _showDetailReceive(poId, poNumber) {
+    Loading.show('Memuat data penerimaan...')
+    try {
+        // Sesuaikan endpoint dengan BE Anda
+        const res = await Http.get(`/purchase-orders/${poId}/receives`)
+        const receives = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
 
-    if (_formItems.length === 0) {
-        $tbody.html(`
-            <tr id="pr-empty-row">
-                <td colspan="4" class="text-center py-6 text-gray-400 text-xs">
-                    Belum ada item. Klik
-                    <strong class="text-blue-500">+ Tambah Material</strong>.
-                </td>
-            </tr>`)
-        return
+        if (!receives.length) {
+            Toast.show('Belum ada data penerimaan untuk PO ini.', 'info')
+            return
+        }
+
+        const rows = receives.map((rcv, i) => {
+            const itemRows = (rcv.items ?? []).map((item, j) =>
+                `<tr class="border-t border-gray-100">
+                    <td class="py-1 px-2 text-gray-400 text-xs text-center">${j + 1}</td>
+                    <td class="py-1 px-2 text-gray-700 text-xs whitespace-nowrap">
+                        <span class="text-gray-500">${item.material_code ?? '-'}</span> | ${item.material_name ?? '-'}
+                    </td>
+                    <td class="py-1 px-2 text-right tabular-nums text-gray-800 text-xs">${Format.number(item.qty_received ?? 0)}</td>
+                    <td class="py-1 px-2 text-center text-gray-500 text-xs">${item.unit_code ?? '-'}</td>
+                    <td class="py-1 px-2 text-right tabular-nums text-gray-800 text-xs">${Format.currency(item.unit_price ?? 0)}</td>
+                    <td class="py-1 px-2 text-right tabular-nums font-medium text-gray-800 text-xs">${Format.currency((item.qty_received ?? 0) * (item.unit_price ?? 0))}</td>
+                </tr>`
+            ).join('')
+
+            return `
+                <!-- Header dokumen receive -->
+                <div class="rounded-lg border border-gray-200 overflow-hidden mb-3">
+                    <div class="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                        <div class="flex items-center gap-3">
+                            <span class="font-semibold text-gray-800 text-xs">${rcv.receive_number ?? '-'}</span>
+                            <span class="text-gray-400 text-xs">${Format.date(rcv.receive_date)}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${rcv.notes ? `<span class="text-gray-400 text-xs italic truncate max-w-[140px]">${rcv.notes}</span>` : ''}
+                            <span class="text-xs font-bold text-blue-600">
+                                ${Format.currency((rcv.items ?? []).reduce((s, it) => s + (it.qty_received ?? 0) * (it.unit_price ?? 0), 0))}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead class="bg-gray-100 text-gray-500">
+                                <tr>
+                                    <th class="py-1 px-2 text-center w-6">No</th>
+                                    <th class="py-1 px-2 text-left">Material</th>
+                                    <th class="py-1 px-2 text-right whitespace-nowrap">Qty Terima</th>
+                                    <th class="py-1 px-2 text-center">Sat</th>
+                                    <th class="py-1 px-2 text-right">Harga</th>
+                                    <th class="py-1 px-2 text-right">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${itemRows || '<tr><td colspan="6" class="text-center py-2 text-gray-400">Tidak ada item</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`
+        }).join('')
+
+        const grandTotal = receives.reduce((sum, rcv) =>
+            sum + (rcv.items ?? []).reduce((s, it) => s + (it.qty_received ?? 0) * (it.unit_price ?? 0), 0), 0)
+
+        Modal.open({
+            title: `Penerimaan — ${poNumber}`,
+            body: `
+                <div class="text-xs text-gray-500 mb-3">
+                    <span class="font-medium text-gray-700">${receives.length}</span> dokumen penerimaan ditemukan
+                </div>
+                ${rows}
+                <div class="flex justify-end items-center gap-2 pt-2 border-t border-gray-100 mt-1">
+                    <span class="text-xs text-gray-500 font-medium">Total Nilai Terima</span>
+                    <span class="text-sm font-bold text-gray-900 tabular-nums">${Format.currency(grandTotal)}</span>
+                </div>`,
+            actions: `
+                <button id="modal-btn-back"
+                    class="h-8 px-4 rounded-lg border border-gray-200
+                           text-sm text-gray-600 hover:bg-gray-100 transition">
+                    ← Kembali
+                </button>
+                <button id="modal-btn-ok"
+                    class="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700
+                           text-white text-sm font-medium transition">
+                    Tutup
+                </button>`,
+            onOpen: () => {
+                $('#modal-btn-ok').one('click', () => Modal.close())
+                $('#modal-btn-back').one('click', () => {
+                    Modal.close()
+                    setTimeout(() => _showHistoryPO(), 220)
+                })
+            },
+        })
+    } catch (err) {
+        Toast.show('Gagal memuat data penerimaan: ' + err.message, 'error')
+    } finally {
+        Loading.hide()
     }
-
-    _formItems.forEach((item, idx) => {
-        const isEven = idx % 2 === 0
-        $tbody.append(`
-            <tr class="border-t border-gray-100 ${isEven ? 'bg-white' : 'bg-blue-50/30'} hover:bg-blue-50 transition">
- 
-                <!-- Nama barang -->
-                <td class="py-2 px-3 min-w-[130px] whitespace-nowrap">
-                    <div class="font-semibold text-gray-800 text-xs leading-tight">
-                        ${_escHtml(item.material_name)}
-                    </div>
-                    <div class="text-gray-400 text-xs">
-                        ${_escHtml(item.material_code)}
-                        <span class="ml-1">(${_escHtml(item.unit_code)})</span>
-                    </div>
-                </td>
- 
-                <!-- QTY REQUEST -->
-                <td class="py-2 px-3 text-center">
-                    <input type="number" data-idx="${idx}"
-                        class="pr-qty-input w-20 text-right border border-gray-200 rounded-lg
-                               px-2 py-1 text-sm font-bold text-gray-800 tabular-nums
-                               focus:outline-none focus:ring-2 focus:ring-blue-300
-                               focus:border-blue-400 transition"
-                        value="${item.qty_requested}"
-                        min="0.0001" step="any">
-                </td>
- 
-                <!-- CATATAN ITEM -->
-                <td class="py-2 px-3 white">
-                    <input type="text" data-idx="${idx}"
-                        class="pr-notes-input w-32 border border-gray-200 rounded-lg
-                               px-2 py-1 text-xs text-gray-600
-                               focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
-                        placeholder="opsional"
-                        value="${_escHtml(item.notes ?? '')}">
-                </td>
- 
-                <!-- Hapus -->
-                <td class="py-2 px-2 text-center">
-                    <button type="button" data-idx="${idx}"
-                        class="pr-btn-remove w-6 h-6 flex items-center justify-center
-                               rounded-full text-red-400 hover:bg-red-50 hover:text-red-600
-                               transition text-base leading-none mx-auto">
-                        &times;
-                    </button>
-                </td>
-            </tr>`)
-    })
-}
-
-// =============================================================================
-//  HELPER: Sync DOM → _formItems[]
-// =============================================================================
-function _syncFormItemsFromDOM() {
-    $('#pr-items-tbody .pr-qty-input').each(function () {
-        const idx = parseInt($(this).data('idx'))
-        if (!isNaN(idx) && _formItems[idx]) {
-            _formItems[idx].qty_requested = parseFloat($(this).val()) || 0
-        }
-    })
-    $('#pr-items-tbody .pr-notes-input').each(function () {
-        const idx = parseInt($(this).data('idx'))
-        if (!isNaN(idx) && _formItems[idx]) {
-            _formItems[idx].notes = $(this).val().trim() || null
-        }
-    })
-}
-
-// =============================================================================
-//  HELPER: Escape HTML
-// =============================================================================
-function _escHtml(str) {
-    if (str == null) return ''
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
 }
 
 // ─── Init ─────────────────────────────────────────────────────
