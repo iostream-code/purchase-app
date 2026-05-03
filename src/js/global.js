@@ -50,7 +50,7 @@ export const Modal = {
 
     open(opts = {}) {
         this._onClose = typeof opts.onClose === 'function' ? opts.onClose : null
-        $('#modal-title').text(opts.title ?? '')
+        $('#modal-title').html(opts.title ?? '')
         $('#modal-body').html(opts.body ?? '')
         $('#modal-actions').html(opts.actions ?? '')
         $('#modal-overlay').removeClass('hidden')

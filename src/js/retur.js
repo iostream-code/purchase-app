@@ -28,7 +28,7 @@ $('#btn-logout').on('click', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Status yang dianggap selesai → hanya muncul di History
-const FINISH_STATUSES = ['REPLACED', 'CLOSED', 'REJECTED', 'CANCELLED']
+const FINISH_STATUSES = ['SENT']
 
 // Inbox aktif (SUBMITTED + APPROVED)
 const INBOX_STATUSES = ['SUBMITTED', 'APPROVED']
@@ -153,7 +153,6 @@ function renderTable(data) {
                 <td class="px-3 py-1 text-gray-600 truncate border border-gray-200">${r.purchase_order?.po_number ?? '-'}</td>
                 <td class="px-3 py-1 text-gray-600 truncate border border-gray-200">${r.supplier?.name ?? '-'}</td>
                 <td class="px-3 py-1 text-center text-gray-500 text-xs border border-gray-200">${Format.date(r.retur_date)}</td>
-                <td class="px-3 py-1 text-center text-gray-800 tabular-nums border border-gray-200">${Format.number(r.total_qty ?? 0)}</td>
                 <td class="px-3 py-1 text-center border border-gray-200 whitespace-nowrap ${bgCls}">${badge(status)}</td>
                 <td class="px-3 py-1 border border-gray-200">
                     <div class="flex justify-center">
@@ -225,23 +224,12 @@ async function loadData() {
 async function _showHistoryRetur() {
     Loading.show('Memuat riwayat retur...')
     try {
-        // Ambil data di luar inbox (status finish)
-        // Catatan: endpoint inbox hanya mengembalikan SUBMITTED+APPROVED.
-        // Untuk history (REPLACED/CLOSED/REJECTED/CANCELLED) perlu endpoint
-        // terpisah. Sementara kita fetch semua dari history endpoint kalau ada,
-        // atau tampilkan pesan jika belum ada.
-        //
-        // ── Gunakan endpoint ini kalau sudah ada di BE: ──────────────────
-        // const res = await Http.post('/purchase-retur/history', {})
-        // const data = Array.isArray(res?.data) ? res.data : []
-        // ────────────────────────────────────────────────────────────────
-        //
-        // Sementara: fetch inbox semua status (workaround)
-        const res = await Http.post('/purchase-retur/inbox', {
-            status_filter: 'all',
+        // History Retur — hanya status SENT (sudah dikirim ke supplier)
+        // Menggunakan endpoint /purchase-retur/history
+        const res = await Http.post('/purchase-retur/history', {
+            status_filter: 'SENT',
         })
-        const all = Array.isArray(res?.data) ? res.data : []
-        const data = all.filter(r => FINISH_STATUSES.includes(r.status))
+        const data = Array.isArray(res?.data) ? res.data : []
 
         const rows = data.length
             ? data.map((r, i) => {
@@ -257,12 +245,25 @@ async function _showHistoryRetur() {
                         <td class="py-1.5 px-2 text-gray-500 text-xs text-center border border-gray-100 whitespace-nowrap">${Format.date(r.retur_date)}</td>
                         <td class="py-1.5 px-2 text-center tabular-nums text-gray-800 text-xs border border-gray-100">${Format.number(r.total_qty ?? 0)}</td>
                         <td class="py-1.5 px-2 text-center text-xs border border-gray-100 whitespace-nowrap ${bgCls}">${badge(status)}</td>
+                        <td class="py-1.5 px-2 text-center border border-gray-100">
+                            <button data-action="view-retur-photos"
+                                    data-id="${r.id}" data-number="${r.retur_number ?? ''}"
+                                class="h-6 w-6 flex items-center justify-center rounded border border-gray-200
+                                       bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-600
+                                       hover:border-blue-200 transition mx-auto"
+                                title="Foto Penerimaan">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                            </button>
+                        </td>
                     </tr>`
             }).join('')
-            : '<tr><td colspan="7" class="text-center py-4 text-gray-400 text-xs">Tidak ada data riwayat</td></tr>'
+            : '<tr><td colspan="8" class="text-center py-4 text-gray-400 text-xs">Tidak ada retur yang telah dikirim</td></tr>'
 
         Modal.open({
-            title: 'Riwayat Retur',
+            title: 'Riwayat Retur (Terkirim)',
             body: `
                 <div class="overflow-x-auto">
                     <table class="w-full text-xs border-collapse">
@@ -275,6 +276,7 @@ async function _showHistoryRetur() {
                                 <th class="py-1.5 px-2 border border-gray-200 text-center">Tanggal</th>
                                 <th class="py-1.5 px-2 border border-gray-200 text-center">Qty</th>
                                 <th class="py-1.5 px-2 border border-gray-200 text-center">Status</th>
+                                <th class="py-1.5 px-2 border border-gray-200 text-center">Foto</th>
                             </tr>
                         </thead>
                         <tbody>${rows}</tbody>
@@ -288,9 +290,17 @@ async function _showHistoryRetur() {
                     Modal.close()
                     setTimeout(() => _showDetailRetur(id, true), 220)
                 })
+                $('#modal-body').on('click', '[data-action="view-retur-photos"]', function (e) {
+                    e.stopPropagation()
+                    const id = +$(this).data('id')
+                    const num = $(this).data('number')
+                    Modal.close()
+                    setTimeout(() => _showReturPhotos(id, num), 220)
+                })
             },
             onClose: () => {
                 $('#modal-body').off('click', '[data-action="view-retur-history"]')
+                $('#modal-body').off('click', '[data-action="view-retur-photos"]')
             },
         })
     } catch (err) {
@@ -345,10 +355,10 @@ async function _showDetailRetur(id, isHistory = false) {
                     <tr class="border-t border-gray-100 text-xs">
                         <td class="py-1 px-2 text-gray-400">${i + 1}</td>
                         <td class="py-1 px-2 text-gray-700 whitespace-nowrap">
-                            <span class="text-gray-500">${d.material?.code ?? '-'}</span> | ${d.material?.name ?? '-'}
+                            ${d.material?.name ?? '-'} |
+                            <span class="text-gray-500 ml-1">${d.material?.unit?.code ?? ''}</span>
                         </td>
                         ${qtyCell}
-                        <td class="py-1 px-2 text-center text-gray-600">${d.material?.unit?.code ?? '-'}</td>
                         <td class="py-1 px-2 text-right tabular-nums text-gray-800">${Format.currency(d.unit_price ?? 0)}</td>
                         <td class="py-1 px-2 text-right tabular-nums font-medium text-gray-800">${Format.currency(subtotal)}</td>
                         <td class="py-1 px-2 text-center">
@@ -390,11 +400,48 @@ async function _showDetailRetur(id, isHistory = false) {
                 </div>
             </div>` : ''
 
-        // ── Info disposition (pasca-approve) ──────────────────────────────
-        const dispositionInfo = (!canApprove && r.retur_action) ? `
-            <div>
-                <div class="text-gray-500">Keputusan</div>
-                <div>${actionBadge(r.retur_action)}</div>
+        // ── Info disposition dihapus — keputusan tampil di header modal ────
+        const dispositionInfo = ''
+
+        // ── Section upload bukti transfer (REFUND + APPROVED) ─────────────
+        const refundSection = (r.status === 'APPROVED' && r.retur_action === 'REFUND') ? `
+            <div class="border-t pt-3 mt-1">
+                <p class="text-xs font-bold text-gray-600 mb-2">Bukti Transfer Refund</p>
+                ${r.refund_proof_url ? `
+                <div class="mb-2 flex items-center gap-2">
+                    <a href="${r.refund_proof_url}" target="_blank"
+                       class="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                        </svg>
+                        Lihat bukti sebelumnya
+                    </a>
+                </div>` : ''}
+                <div class="flex items-center gap-2">
+                    <label class="flex-1">
+                        <div class="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300
+                                    rounded-lg bg-gray-50 hover:bg-blue-50 hover:border-blue-300
+                                    transition cursor-pointer">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                            </svg>
+                            <span id="refund-file-label" class="text-xs text-gray-400">
+                                Pilih foto / PDF bukti transfer...
+                            </span>
+                        </div>
+                        <input id="refund-file-input" type="file"
+                               accept="image/*,.pdf" class="hidden">
+                    </label>
+                    <button id="btn-upload-refund"
+                        class="h-9 px-3 rounded-lg bg-green-600 hover:bg-green-700
+                               text-white text-xs font-medium transition whitespace-nowrap disabled:opacity-40"
+                        disabled>
+                        Upload
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Format: JPG, PNG, atau PDF. Maks 5MB.</p>
             </div>` : ''
 
         // ── Info approver / sender / rejecter ─────────────────────────────
@@ -443,14 +490,6 @@ async function _showDetailRetur(id, isHistory = false) {
                         <div class="text-gray-500">Gudang</div>
                         <div class="text-gray-700">${r.warehouse?.name ?? '-'}</div>
                     </div>
-                    <div>
-                        <div class="text-gray-500">Status</div>
-                        <div>${badge(r.status)}</div>
-                    </div>
-                    <div>
-                        <div class="text-gray-500">Diminta oleh</div>
-                        <div class="text-gray-700">${r.requester?.username ?? '-'}</div>
-                    </div>
                     ${dispositionInfo}
                     ${actorInfo}
                     ${r.notes ? `
@@ -468,7 +507,7 @@ async function _showDetailRetur(id, isHistory = false) {
                 <!-- Tabel item -->
                 <div class="border-t pt-2">
                     <p class="text-xs font-bold text-gray-600 mb-1">
-                        Item Retur | ${items.length} baris
+                        Data | ${items.length}
                     </p>
                     <div class="overflow-x-auto max-h-48">
                         <table class="w-full text-xs">
@@ -477,7 +516,6 @@ async function _showDetailRetur(id, isHistory = false) {
                                     <th class="py-1 px-2 text-left w-6">No</th>
                                     <th class="py-1 px-2 text-left">Material</th>
                                     <th class="py-1 px-2 text-right">Qty</th>
-                                    <th class="py-1 px-2 text-center">Sat</th>
                                     <th class="py-1 px-2 text-right">Harga</th>
                                     <th class="py-1 px-2 text-right">Subtotal</th>
                                     <th class="py-1 px-2 text-center">Kondisi</th>
@@ -494,19 +532,22 @@ async function _showDetailRetur(id, isHistory = false) {
 
                 <!-- Section approve -->
                 ${approveSection}
+
+                <!-- Section upload bukti refund -->
+                ${refundSection}
             </div>`
 
         // ── Tombol footer ─────────────────────────────────────────────────
         const approveActions = canApprove ? `
-            <button id="modal-btn-submit-approval"
-                class="h-8 px-4 rounded-lg bg-green-600 hover:bg-green-700
-                       text-white text-sm font-medium transition">
-                Simpan
-            </button>
             <button id="modal-btn-reject"
                 class="h-8 px-4 rounded-lg border border-red-200
                        text-sm font-medium text-red-500 hover:bg-red-50 transition">
                 Tolak
+            </button>
+            <button id="modal-btn-submit-approval"
+                class="h-8 px-4 rounded-lg bg-green-600 hover:bg-green-700
+                       text-white text-sm font-medium transition">
+                Simpan
             </button>` : ''
 
         const backAction = isHistory ? `
@@ -624,23 +665,113 @@ async function _showDetailRetur(id, isHistory = false) {
                 // ── Tombol SEND (APPROVED → SENT) ──────────────────────
                 if (r.status === 'APPROVED') {
                     $('#modal-btn-send').one('click', () => {
-                        Modal.confirm({
-                            title: 'Kirim ke Supplier?',
-                            message: `Konfirmasi pengiriman fisik barang retur
-                                <strong>${r.retur_number}</strong> ke supplier
-                                <strong>${r.supplier?.name ?? '-'}</strong>?
-                                <br><span class="text-xs text-gray-500">
-                                Stok akan berkurang setelah dikonfirmasi.</span>`,
-                            labelOk: 'Ya, Kirim',
-                            onOk: async () => {
-                                try {
-                                    Modal.close()
-                                    await _submitSend(r.id)
-                                } catch (err) {
-                                    Toast.show('Gagal: ' + err.message, 'error')
-                                }
-                            },
-                        })
+                        // REPLACEMENT → buka form ekspedisi dulu sebelum kirim
+                        if (r.retur_action === 'REPLACEMENT') {
+                            Modal.form({
+                                title: 'Pengiriman Retur ke Supplier',
+                                formHtml: `
+                                    <p class="text-xs text-gray-500 mb-3">
+                                        Isi data ekspedisi untuk pengiriman barang retur
+                                        <strong>${r.retur_number}</strong> ke
+                                        <strong>${r.supplier?.name ?? '-'}</strong>.
+                                    </p>
+                                    <div class="flex flex-col gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                                                Ekspedisi <span class="text-red-500">*</span>
+                                            </label>
+                                            <input id="form-expedition-name" type="text"
+                                                placeholder="Contoh: JNE, TIKI, SiCepat, Wahana..."
+                                                class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5
+                                                       focus:outline-none focus:ring-2 focus:ring-blue-200">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                                                No. Resi / Tracking
+                                            </label>
+                                            <input id="form-tracking-number" type="text"
+                                                placeholder="Nomor resi pengiriman (opsional)"
+                                                class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5
+                                                       focus:outline-none focus:ring-2 focus:ring-blue-200">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                                                Catatan
+                                            </label>
+                                            <textarea id="form-send-notes" rows="2"
+                                                placeholder="Catatan tambahan (opsional)"
+                                                class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5
+                                                       focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"></textarea>
+                                        </div>
+                                    </div>`,
+                                labelSubmit: 'Konfirmasi Kirim',
+                                onSubmit: async () => {
+                                    const expedition = $('#form-expedition-name').val().trim()
+                                    if (!expedition) {
+                                        Toast.show('Nama ekspedisi wajib diisi.', 'error')
+                                        $('#form-expedition-name').addClass('ring-2 ring-red-400')
+                                        return
+                                    }
+                                    const tracking = $('#form-tracking-number').val().trim() || null
+                                    const notes = $('#form-send-notes').val().trim() || null
+                                    try {
+                                        Modal.close()
+                                        await _submitSend(r.id, {
+                                            expedition_name: expedition,
+                                            tracking_number: tracking,
+                                            notes,
+                                        })
+                                    } catch (err) {
+                                        Toast.show('Gagal mengirim: ' + err.message, 'error')
+                                    }
+                                },
+                            })
+                        } else {
+                            // Selain REPLACEMENT — konfirmasi langsung
+                            Modal.confirm({
+                                title: 'Konfirmasi Pengiriman',
+                                message: `Konfirmasi pengiriman retur
+                                    <strong>${r.retur_number}</strong> ke supplier
+                                    <strong>${r.supplier?.name ?? '-'}</strong>?
+                                    <br><span class="text-xs text-gray-500">
+                                    Stok akan berkurang setelah dikonfirmasi.</span>`,
+                                labelOk: 'Ya, Kirim',
+                                onOk: async () => {
+                                    try {
+                                        Modal.close()
+                                        await _submitSend(r.id)
+                                    } catch (err) {
+                                        Toast.show('Gagal: ' + err.message, 'error')
+                                    }
+                                },
+                            })
+                        }
+                    })
+                }
+
+                // ── Upload bukti refund ────────────────────────────────────
+                if (r.status === 'APPROVED' && r.retur_action === 'REFUND') {
+                    $('#refund-file-input').on('change', function () {
+                        const file = this.files[0]
+                        if (!file) return
+                        if (file.size > 5 * 1024 * 1024) {
+                            Toast.show('File terlalu besar. Maksimal 5MB.', 'error')
+                            this.value = ''
+                            return
+                        }
+                        $('#refund-file-label').text(file.name)
+                        $('#btn-upload-refund').prop('disabled', false)
+                    })
+
+                    $('#btn-upload-refund').on('click', async function () {
+                        const file = $('#refund-file-input')[0].files[0]
+                        if (!file) return
+                        try {
+                            await _uploadRefundProof(r.id, file)
+                            $('#refund-file-label').text('Pilih foto / PDF bukti transfer...')
+                            $('#refund-file-input').val('')
+                            $('#btn-upload-refund').prop('disabled', true)
+                        } catch { /* error sudah ditangani di _uploadRefundProof */ }
                     })
                 }
             },
@@ -678,16 +809,16 @@ async function _submitApprove(id, returAction, notes = null) {
 // ═══════════════════════════════════════════════════════════════════════════
 //  SUBMIT SEND  (APPROVED → SENT)
 //  BE: POST /purchase-retur/send
-//  Body: { retur_id, user_id, notes }
+//  Body: { retur_id, user_id, expedition_name?, tracking_number?, notes? }
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function _submitSend(id, notes = null) {
+async function _submitSend(id, payload = {}) {
     Loading.show('Mengirim retur ke supplier...')
     try {
         const res = await Http.post('/purchase-retur/send', {
             retur_id: id,
             user_id: user?.user_id ?? user?.id ?? null,
-            notes: notes,
+            ...payload,
         })
         Toast.show(`Retur ${res?.data?.doc_number ?? ''} berhasil dikirim ke supplier. ✓`, 'success')
         loadData()
@@ -695,6 +826,77 @@ async function _submitSend(id, notes = null) {
         Toast.show('Gagal mengirim: ' + err.message, 'error')
     } finally {
         Loading.hide()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UPLOAD BUKTI TRANSFER REFUND
+//  BE: POST /purchase-retur/upload-refund  (multipart/form-data)
+//  Body: FormData { retur_id, file }
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function _uploadRefundProof(returId, file) {
+    Loading.show('Mengupload bukti transfer...')
+    try {
+        const token = localStorage.getItem('auth_token')
+        const formData = new FormData()
+        formData.append('retur_id', returId)
+        formData.append('file', file)
+        const res = await fetch(
+            `${import.meta.env.VITE_API_BASE_URL ?? ''}/purchase-retur/upload-refund`,
+            { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData }
+        )
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(err.message ?? `HTTP ${res.status}`)
+        }
+        Toast.show('Bukti transfer berhasil diupload. ✓', 'success')
+        return await res.json()
+    } catch (err) {
+        Toast.show('Gagal upload: ' + err.message, 'error')
+        throw err
+    } finally {
+        Loading.hide()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  LIHAT FOTO PENERIMAAN BARANG RETUR
+//  BE: GET /purchase-retur/{id}/photos
+//  Response: { data: [{ url, caption, uploaded_at }] }
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function _showReturPhotos(id, returNumber) {
+    Loading.show('Memuat foto...')
+    try {
+        const res = await Http.get(`/purchase-retur/${id}/photos`)
+        const photos = Array.isArray(res?.data) ? res.data : []
+        Loading.hide()
+        const photosHtml = photos.length
+            ? `<div class="grid grid-cols-2 gap-2">
+                ${photos.map(p => `
+                    <div class="rounded-lg overflow-hidden border border-gray-100">
+                        <img src="${p.url}" alt="${p.caption ?? 'Foto'}"
+                            class="w-full object-cover aspect-square cursor-pointer"
+                            onclick="window.open('${p.url}', '_blank')" />
+                        ${p.caption || p.uploaded_at ? `
+                        <div class="px-2 py-1 bg-gray-50 text-xs text-gray-400 truncate">
+                            ${p.caption ?? ''} ${p.uploaded_at ? Format.date(p.uploaded_at) : ''}
+                        </div>` : ''}
+                    </div>`).join('')}
+               </div>`
+            : `<div class="py-10 text-center text-gray-400 text-sm">Belum ada foto penerimaan.</div>`
+        Modal.open({
+            title: `Foto Penerimaan — ${returNumber}`,
+            body: photosHtml,
+            actions: `<button id="modal-btn-ok"
+                class="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700
+                       text-white text-sm font-medium transition">Tutup</button>`,
+            onOpen: () => { $('#modal-btn-ok').one('click', () => Modal.close()) },
+        })
+    } catch (err) {
+        Loading.hide()
+        Toast.show('Gagal memuat foto: ' + err.message, 'error')
     }
 }
 

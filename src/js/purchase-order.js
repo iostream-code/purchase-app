@@ -420,10 +420,10 @@ async function _showDetailRequest(id) {
             <tr class="border-t border-gray-100 text-xs">
                 <td class="py-1 px-2 text-gray-400">${i + 1}</td>
                 <td class="py-1 px-2 whitespace-nowrap text-gray-700">
-                    <span class="text-gray-500">${item.material_code ?? '-'}</span> |
-                    ${item.material_name ?? '-'}
+                    ${item.material_name ?? '-'} |
+                    <span class="text-gray-500 ml-1">${item.unit_code ?? ''}</span>
                 </td>
-                <td class="py-1 px-2 text-right tabular-nums text-gray-600">
+                <td class="py-1 px-2 text-right tabular-nums text-gray-800 font-semibold">
                     ${Format.number(qtyReq)}
                 </td>
                 <td class="py-1 px-2 text-right tabular-nums ${qtyOrd > 0 ? 'text-blue-600 font-medium' : 'text-gray-300'}">
@@ -441,7 +441,6 @@ async function _showDetailRequest(id) {
                 <td class="py-1 px-2 text-right" id="subtotal-cell-${item.id}">
                     ${renderSubtotal(item)}
                 </td>
-                <td class="py-1 px-2 text-center text-gray-600">${item.unit_code ?? '-'}</td>
             </tr>`
         }).join('')
 
@@ -532,11 +531,10 @@ async function _showDetailRequest(id) {
                                             ${canEdit ? '<span class="text-green-600">Harga ✎</span>' : 'Harga'}
                                         </th>
                                         <th class="py-1 px-2 text-right">Subtotal</th>
-                                        <th class="py-1 px-2 text-center">Satuan</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${itemRows || '<tr><td colspan="9" class="text-center py-3 text-gray-400">Tidak ada item</td></tr>'}
+                                    ${itemRows || '<tr><td colspan="8" class="text-center py-3 text-gray-400">Tidak ada item</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
@@ -772,11 +770,11 @@ async function _showDetailPO(id) {
             `<tr class="border-t border-gray-100 text-xs">
                 <td class="py-1 px-2 text-gray-400">${i + 1}</td>
                 <td class="py-1 px-2 text-gray-700 whitespace-nowrap">
-                    <span class="text-gray-500">${item.material_code ?? '-'}</span> | ${item.material_name ?? '-'}
+                    ${item.material_name ?? '-'} |
+                    <span class="text-gray-500 ml-1">${item.unit_code ?? ''}</span>
                 </td>
                 <td class="py-1 px-2 text-right tabular-nums text-gray-800">${Format.number(item.qty_ordered ?? 0)}</td>
                 <td class="py-1 px-2 text-right tabular-nums text-gray-600">${Format.number(item.qty_received ?? 0)}</td>
-                <td class="py-1 px-2 text-center text-gray-600">${item.unit_code ?? '-'}</td>
                 <td class="py-1 px-2 text-right tabular-nums text-gray-800">${Format.currency(item.unit_price ?? 0)}</td>
                 <td class="py-1 px-2 text-right tabular-nums font-medium text-gray-800">${Format.currency(item.line_total ?? 0)}</td>
             </tr>`
@@ -814,13 +812,12 @@ async function _showDetailPO(id) {
                                         <th class="py-1 px-2 text-left">Material</th>
                                         <th class="py-1 px-2 text-right whitespace-nowrap">PO</th>
                                         <th class="py-1 px-2 text-right whitespace-nowrap">Diterima</th>
-                                        <th class="py-1 px-2 text-center">Satuan</th>
                                         <th class="py-1 px-2 text-right">Harga</th>
                                         <th class="py-1 px-2 text-right">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${itemRows || '<tr><td colspan="7" class="text-center py-3 text-gray-400">Tidak ada item</td></tr>'}
+                                    ${itemRows || '<tr><td colspan="6" class="text-center py-3 text-gray-400">Tidak ada item</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
@@ -1072,10 +1069,10 @@ async function _showDetailReceive(poId, poNumber) {
                 `<tr class="border-t border-gray-100">
                     <td class="py-1 px-2 text-gray-400 text-xs text-center">${j + 1}</td>
                     <td class="py-1 px-2 text-gray-700 text-xs whitespace-nowrap">
-                        <span class="text-gray-500">${item.material_code ?? '-'}</span> | ${item.material_name ?? '-'}
+                        ${item.material_name ?? '-'}
+                        <span class="text-gray-400 ml-1">${item.unit_code ?? ''}</span>
                     </td>
                     <td class="py-1 px-2 text-right tabular-nums text-gray-800 text-xs">${Format.number(item.qty_received ?? 0)}</td>
-                    <td class="py-1 px-2 text-center text-gray-500 text-xs">${item.unit_code ?? '-'}</td>
                     <td class="py-1 px-2 text-right tabular-nums text-gray-800 text-xs">${Format.currency(item.unit_price ?? 0)}</td>
                     <td class="py-1 px-2 text-right tabular-nums font-medium text-gray-800 text-xs">${Format.currency((item.qty_received ?? 0) * (item.unit_price ?? 0))}</td>
                 </tr>`
@@ -1103,13 +1100,12 @@ async function _showDetailReceive(poId, poNumber) {
                                     <th class="py-1 px-2 text-center w-6">No</th>
                                     <th class="py-1 px-2 text-left">Material</th>
                                     <th class="py-1 px-2 text-right whitespace-nowrap">Qty Terima</th>
-                                    <th class="py-1 px-2 text-center">Sat</th>
                                     <th class="py-1 px-2 text-right">Harga</th>
                                     <th class="py-1 px-2 text-right">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${itemRows || '<tr><td colspan="6" class="text-center py-2 text-gray-400">Tidak ada item</td></tr>'}
+                                ${itemRows || '<tr><td colspan="5" class="text-center py-2 text-gray-400">Tidak ada item</td></tr>'}
                             </tbody>
                         </table>
                     </div>
