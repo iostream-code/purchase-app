@@ -72,6 +72,22 @@ const STATUS_TEXT_CLASS = {
     CANCELLED: 'text-red-600',
 }
 
+// ─── Daftar ekspedisi lokal (autocomplete) ────────────────────
+const EXPEDITION_OPTIONS = [
+    'JNE',
+    'J&T Express',
+    'SiCepat',
+    'TIKI',
+    'Wahana',
+    'AnterAja',
+    'Lion Parcel',
+    'Ninja Express',
+    'GoSend',
+    'GrabExpress',
+    'Kargo',
+    'Lainnya',
+]
+
 function badge(status) {
     const label = STATUS_TEXT[status] ?? status
     const textCls = STATUS_TEXT_CLASS[status] ?? 'text-gray-600'
@@ -360,9 +376,6 @@ async function _showDetailRequest(id) {
         const canApprove = ['SUBMITTED', 'PARTIAL_ORDERED'].includes(pr.status)
 
         // ── State lokal: qty_ordered + unit_price per item ────────────
-        // Default qty input approve = sisa (qty_requested - qty_ordered).
-        // Berlaku untuk SUBMITTED (qty_ordered = 0, sisa = qty_requested)
-        // maupun PARTIAL_ORDERED (qty_ordered > 0, sisa = selisihnya).
         const _itemQtys = {}
         const _itemPrices = {}
         items.forEach(item => {
@@ -633,10 +646,10 @@ async function _showDetailRequest(id) {
                 if (!canApprove) return
 
                 // ── Tombol APPROVE ──────────────────────────────────────────
-                let _approveInProgress = false   // ← tambahkan guard ini
+                let _approveInProgress = false
 
                 $('#modal-btn-approve').on('click', () => {
-                    if (_approveInProgress) return   // cegah double-submit
+                    if (_approveInProgress) return
 
                     // Baca nilai terkini dari DOM
                     $('.qty-cell-input').each(function () {
@@ -652,7 +665,7 @@ async function _showDetailRequest(id) {
                         $('#btn-pick-supplier')
                             .addClass('border-red-400 bg-red-50')
                             .removeClass('border-dashed border-blue-300 bg-blue-50')
-                        return   // ← sekarang listener TIDAK mati, user bisa klik lagi
+                        return
                     }
 
                     // Bersihkan highlight error supplier jika sudah dipilih
@@ -682,7 +695,7 @@ async function _showDetailRequest(id) {
                   <br><span class="text-xs text-orange-600">PO akan dibuat otomatis dan PR tidak bisa diubah lagi.</span>`,
                         labelOk: 'Ya, Approve & Buat PO',
                         onOk: async () => {
-                            _approveInProgress = true   // ← lock saat async berlangsung
+                            _approveInProgress = true
                             try {
                                 Loading.show('Memproses approve & membuat PO...')
                                 const result = await Http.post(`/purchase-requests/${id}/approve`, {
@@ -701,7 +714,7 @@ async function _showDetailRequest(id) {
                                 Toast.show('Gagal approve: ' + err.message, 'error')
                             } finally {
                                 Loading.hide()
-                                _approveInProgress = false   // ← unlock setelah selesai
+                                _approveInProgress = false
                             }
                         },
                     })
@@ -766,6 +779,9 @@ async function _showDetailPO(id) {
         const po = res.data
         const items = po.items ?? []
 
+        const isLocal = (po.supplier_type ?? '').toUpperCase() === 'LOCAL'
+        const canSetShipping = isLocal && !['RECEIVED', 'CLOSED', 'CANCELLED'].includes(po.status)
+
         const itemRows = items.map((item, i) =>
             `<tr class="border-t border-gray-100 text-xs">
                 <td class="py-1 px-2 text-gray-400">${i + 1}</td>
@@ -780,6 +796,43 @@ async function _showDetailPO(id) {
             </tr>`
         ).join('')
 
+        // ── Section info pengiriman (jika sudah diisi sebelumnya) ─────
+        const shippingInfoSection = (po.expedition_name || po.tracking_number) ? `
+            <div class="border-t pt-2 mt-1">
+                <p class="text-xs font-bold text-gray-600 mb-1.5 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414A1 1 0 0121 11.414V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+                    </svg>
+                    Info Pengiriman
+                </p>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div>
+                        <div class="text-gray-500">Ekspedisi</div>
+                        <div class="font-medium text-gray-800">${po.expedition_name ?? '-'}</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">No. Resi</div>
+                        <div class="text-gray-700">${po.tracking_number ?? '-'}</div>
+                    </div>
+                    ${(po.shipping_cost ?? 0) > 0 ? `
+                    <div>
+                        <div class="text-gray-500">Ongkir</div>
+                        <div class="text-gray-700">${Format.currency(po.shipping_cost)}</div>
+                    </div>` : ''}
+                    ${po.estimated_arrival ? `
+                    <div>
+                        <div class="text-gray-500">Est. Tiba</div>
+                        <div class="text-gray-700">${Format.date(po.estimated_arrival)}</div>
+                    </div>` : ''}
+                    ${po.shipping_notes ? `
+                    <div class="col-span-2">
+                        <div class="text-gray-500">Catatan Kirim</div>
+                        <div class="text-gray-700">${po.shipping_notes}</div>
+                    </div>` : ''}
+                </div>
+            </div>` : ''
+
         Modal.open({
             title: `${po.po_number ?? 'Detail PO'}`,
             body: `
@@ -787,7 +840,11 @@ async function _showDetailPO(id) {
                     <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                         <div>
                             <div class="text-gray-500">Supplier</div>
-                            <div class="font-medium text-gray-800">${po.supplier_name ?? '-'}</div>
+                            <div class="font-medium text-gray-800">
+                                ${po.supplier_name ?? '-'}
+                                ${isLocal ? `<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded
+                                    bg-green-50 text-green-700 text-xs font-medium">LOCAL</span>` : ''}
+                            </div>
                         </div>
                         <div>
                             <div class="text-gray-500">Tanggal PO</div>
@@ -836,17 +893,209 @@ async function _showDetailPO(id) {
                             <span class="tabular-nums text-gray-900">${Format.currency(po.grand_total ?? 0)}</span>
                         </div>
                     </div>
+                    ${shippingInfoSection}
                 </div>`,
-            actions: `<button id="modal-btn-ok"
-                class="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700
-                       text-white text-sm font-medium transition">Tutup</button>`,
-            onOpen: () => { $('#modal-btn-ok').one('click', () => Modal.close()) },
+            actions: `
+                ${canSetShipping ? `
+                <button id="modal-btn-shipping"
+                    class="h-8 px-4 rounded-lg border border-orange-200
+                           bg-orange-50 text-orange-700 text-sm font-medium
+                           hover:bg-orange-100 transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414A1 1 0 0121 11.414V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+                    </svg>
+                    Pengiriman
+                </button>` : ''}
+                <button id="modal-btn-ok"
+                    class="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700
+                           text-white text-sm font-medium transition">Tutup</button>`,
+            onOpen: () => {
+                $('#modal-btn-ok').one('click', () => Modal.close())
+
+                if (canSetShipping) {
+                    $('#modal-btn-shipping').one('click', () => {
+                        Modal.close()
+                        setTimeout(() => {
+                            _showShippingPopup(po, () => {
+                                // Setelah simpan, buka ulang detail PO agar info pengiriman ter-refresh
+                                setTimeout(() => _showDetailPO(po.id), 220)
+                            })
+                        }, 220)
+                    })
+                }
+            },
         })
     } catch (err) {
         Toast.show('Gagal memuat detail PO: ' + err.message, 'error')
     } finally {
         Loading.hide()
     }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  POPUP PENGIRIMAN — hanya untuk PO dengan supplier_type LOCAL
+// ═════════════════════════════════════════════════════════════════════════════
+/**
+ * _showShippingPopup(po, onSuccess)
+ *
+ * Form ekspedisi/pengiriman untuk PO lokal.
+ * Polanya sama dengan popup pengiriman retur di retur.js,
+ * dengan tambahan field ongkir dan estimasi tiba.
+ *
+ * @param {object}   po        — Data PO dari endpoint /purchase-orders/:id
+ * @param {function} onSuccess — Callback setelah simpan berhasil (opsional)
+ */
+async function _showShippingPopup(po, onSuccess = null) {
+    // Prefill dari data yang sudah tersimpan sebelumnya
+    const existing = {
+        expedition_name: po.expedition_name ?? '',
+        tracking_number: po.tracking_number ?? '',
+        shipping_cost: po.shipping_cost ?? 0,
+        estimated_arrival: po.estimated_arrival ?? '',
+        shipping_notes: po.shipping_notes ?? '',
+    }
+
+    const datalistOptions = EXPEDITION_OPTIONS
+        .map(name => `<option value="${name}">`)
+        .join('')
+
+    Modal.form({
+        title: `Pengiriman — ${po.po_number ?? 'PO'}`,
+        formHtml: `
+            <p class="text-xs text-gray-500 mb-3">
+                Atur informasi ekspedisi untuk PO
+                <strong>${po.po_number ?? '-'}</strong>
+                dari supplier <strong>${po.supplier_name ?? '-'}</strong>
+                <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded
+                             bg-green-50 text-green-700 text-xs font-medium">LOCAL</span>.
+            </p>
+
+            <datalist id="expedition-list">
+                ${datalistOptions}
+            </datalist>
+
+            <div class="flex flex-col gap-3">
+
+                <!-- Ekspedisi (wajib) -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                        Ekspedisi / Kurir <span class="text-red-500">*</span>
+                    </label>
+                    <input id="form-expedition-name" type="text"
+                        list="expedition-list"
+                        placeholder="Contoh: JNE, SiCepat, J&T..."
+                        value="${existing.expedition_name}"
+                        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5
+                               focus:outline-none focus:ring-2 focus:ring-blue-200">
+                </div>
+
+                <!-- No. Resi (opsional) -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                        No. Resi / Tracking
+                        <span class="text-gray-400 font-normal">(opsional)</span>
+                    </label>
+                    <input id="form-tracking-number" type="text"
+                        placeholder="Nomor resi pengiriman"
+                        value="${existing.tracking_number}"
+                        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5
+                               focus:outline-none focus:ring-2 focus:ring-blue-200">
+                </div>
+
+                <!-- Ongkir (opsional) -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                        Biaya Pengiriman / Ongkir
+                        <span class="text-gray-400 font-normal">(opsional)</span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                            Rp
+                        </span>
+                        <input id="form-shipping-cost" type="number"
+                            placeholder="0"
+                            min="0" step="any"
+                            value="${existing.shipping_cost || ''}"
+                            class="w-full text-sm border border-gray-200 rounded-lg pl-8 pr-3 py-1.5
+                                   focus:outline-none focus:ring-2 focus:ring-blue-200 tabular-nums">
+                    </div>
+                </div>
+
+                <!-- Estimasi tiba (opsional) -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                        Estimasi Tiba
+                        <span class="text-gray-400 font-normal">(opsional)</span>
+                    </label>
+                    <input id="form-estimated-arrival" type="date"
+                        value="${existing.estimated_arrival}"
+                        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5
+                               focus:outline-none focus:ring-2 focus:ring-blue-200">
+                </div>
+
+                <!-- Catatan (opsional) -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                        Catatan
+                        <span class="text-gray-400 font-normal">(opsional)</span>
+                    </label>
+                    <textarea id="form-shipping-notes" rows="2"
+                        placeholder="Catatan tambahan pengiriman..."
+                        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5
+                               focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                    >${existing.shipping_notes}</textarea>
+                </div>
+
+            </div>`,
+
+        labelSubmit: 'Simpan Pengiriman',
+
+        onSubmit: async () => {
+            const expedition = $('#form-expedition-name').val().trim()
+
+            if (!expedition) {
+                Toast.show('Nama ekspedisi wajib diisi.', 'error')
+                $('#form-expedition-name')
+                    .addClass('ring-2 ring-red-400 border-red-300')
+                    .trigger('focus')
+                return
+            }
+
+            const payload = {
+                expedition_name: expedition,
+                tracking_number: $('#form-tracking-number').val().trim() || null,
+                shipping_cost: parseFloat($('#form-shipping-cost').val()) || 0,
+                estimated_arrival: $('#form-estimated-arrival').val() || null,
+                shipping_notes: $('#form-shipping-notes').val().trim() || null,
+            }
+
+            try {
+                Modal.close()
+                Loading.show('Menyimpan data pengiriman...')
+
+                // Sesuaikan endpoint ini dengan BE Anda
+                await Http.put(`/purchase-orders/${po.id}/shipping`, payload)
+
+                Toast.show('Data pengiriman berhasil disimpan. ✓', 'success')
+                loadData()
+
+                if (typeof onSuccess === 'function') onSuccess(payload)
+
+            } catch (err) {
+                Toast.show('Gagal menyimpan pengiriman: ' + err.message, 'error')
+            } finally {
+                Loading.hide()
+            }
+        },
+
+        onOpen: () => {
+            // Hapus highlight error saat field diketik ulang
+            $('#form-expedition-name').on('input', function () {
+                $(this).removeClass('ring-2 ring-red-400 border-red-300')
+            })
+        },
+    })
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -912,9 +1161,7 @@ async function _showPOsFromRequest(prId) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  HISTORY REQUEST (riwayat PO yang berasal dari Request — per warehouse)
-//  Data diambil dari /purchase-orders; kolom No. Request ditampilkan sebagai
-//  referensi agar user tahu PO ini berasal dari PR mana.
+//  HISTORY REQUEST
 // ═════════════════════════════════════════════════════════════════════════════
 async function _showHistoryRequest() {
     Loading.show('Memuat riwayat request...')
@@ -922,7 +1169,6 @@ async function _showHistoryRequest() {
         const params = { per_page: 200 }
         if (_warehouseId) params.warehouse_id = _warehouseId
 
-        // Ambil dari endpoint Purchase Request, filter hanya yang ORDERED
         const res = await Http.get('/purchase-requests', params)
         const raw = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
         const data = raw.filter(req => req.status === 'ORDERED')
@@ -1055,7 +1301,6 @@ async function _showHistoryPO() {
 async function _showDetailReceive(poId, poNumber) {
     Loading.show('Memuat data penerimaan...')
     try {
-        // Sesuaikan endpoint dengan BE Anda
         const res = await Http.get(`/purchase-orders/${poId}/receives`)
         const receives = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
 
